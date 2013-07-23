@@ -1,5 +1,5 @@
-This code filters to extend noweb with parameterized chunks.  It is a
-partial rewrite of the code in my build.nw
+This provides filters to extend noweb with parameterized chunks.  It
+is a partial rewrite of the code in my build.nw
 (https://bitbucket.org/darktjm/literate-build), changing the tangle
 part to a filter instead of a tangling back end, and removing the
 no-newline feature.  While build.nw is licensed under the Apache
@@ -7,15 +7,15 @@ License 2.0, this code is in the Public Domain.
 
 Unlike my other literate code on this site, this noweb file is not
 meant to be processed using build.nw.  In fact, it shares code chunk
-names with build.nw, making it impossible to using the current
-build.nw.  Maybe one day when I reimplement explicit import/export,
-this limitation will go away.  Until then, there is no color syntax
-highlighting of code chunks, and there are many mostly blank pages and
-other weird gaps, and it's hard to tell where the boundaries are
-between code and documentation.
+names with build.nw, making it impossible using the current build.nw.
+Maybe one day when I reimplement explicit import/export, this
+limitation will go away.  Until then, or until I rename those chunks
+here or there, there is no color syntax highlighting of code chunks,
+and there are many mostly blank pages and other weird gaps, and it's
+hard to tell where the boundaries are between code and documentation.
 
 All files in this project are derived from parm.nw, except for this
-README.  The are provided for convenience only; the authoritative
+README.  They are provided for convenience only; the authoritative
 source is the noweb file.
 
 The official documentation is the noweb file; weave it and display it.

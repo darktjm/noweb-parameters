@@ -26,80 +26,116 @@ The official documentation is the noweb file; weave it and display it.
   pdflatex parm; pdflatex parm; pdflatex parm
   # view parm.pdf
 
-The introduction contains the syntax; here is a summary:
+The introduction contains the syntax, repeated here:
 
-  * chunk names starting with @ are reserved for use as parm names:
+* A chunk name used in a chunk definition line may contain parameter
+  definitions in parentheses. All parameter names begin with an
+  at-sign (@). The only characters forbidden in parameter names are
+  close-parentheses and invalid NoWeb syntax. Thus the parameter
+  name is terminated by its closing parenthesis. Parameter
+  definition syntax within in-line code is ignored.
 
-     @parm1
-     @parm2
-     @this is a parameter with @-sign and spaces
-  
-  * chunk definitions enclose parameters in parentheses at the position
-    where the parameter value should occur:
+  For example:
 
-     <<Divide (@n) by (@d)>>=
-
-  * chunk references use in-line code (i.e., code surrounded by double
-    square brackets) to indicate the parameter values:
-    
-      <<Divide [[10]] by [[2]]>>
-
-  * parameters are referenced the same way as ordinary chunks:
-
-     <<Divide (@n) by (@d)>>=
-     <<@n>>/<<@d>>
-     @
-
-  * parameter values come from the nearest parent; they do not need
-    to be defined by the chunk itself:
-    
-    <<Divide (@n) by (@d)>>=
-    <<Do division>>
-    @
-    
-    <<Do division>>=
-    <<@n>>/<<@d>>
+    <<macro (@arg1) with -(@arg2)- (but not (@arg3))>>=
+    text
     @
 
-  * the in-line code used as parameter text may not contain chunk
-    references, except for parameter references, which are expanded:
-    
-    <<Divide (@n) by (@d)>>=
-    <<Do binary operation [[/]] on [[<<@n>>]] and [[<<@d>>]]>>
+  The parameters are @arg1 and @arg2.
+
+* No chunk name may begin with an at-sign (@). That is, the names
+  starting with an at-sign are reserved for parameter names.
+
+* Chunk references beginning with an at-sign (@) expand to the
+  parameter with that name, as defined by the closest parent taking
+  a parameter of that name. When weaved, such references are not
+  linked anywhere, and they are not added to the index. When
+  tangled, the -L option is ignored.
+
+  For example:
+
+    <<macro (@arg)>>=
+    text <<@arg>>
+    <<other>
     @
-    
-    <<Do binary operation (@op) on (@x) and (@y)>>=
-    <<@x>><<@op>><<@y>>
+    <<macro2 (@arg)>>=
+    text2 <<@arg>>
+    <<other>>
+    @
+    <<other>>=
+    <<@arg>>
     @
 
-  * literal program text may also match literal program text in
-    chunk definitions; the one with the least (or latest) parameter
-    substitutions is chosen:
-    
-    <<Divide (@n) by (@d)>>=
-    <<@n>>/<<@d>>
+* When expanded within macro, both @arg and other will expand to
+  macro's argument. When expanded within macro2, both @arg and other
+  will expand to macro2's argument.
+
+* A chunk reference consisting of the name of a chunk taking
+  parameters, with all parameter references replaced by NoWeb
+  in-line code segments, represents an expansion of the reference
+  with the parameters taking the value of the code within the
+  in-line code segments in their respective positions. No expansion
+  is done within the code segments except for parameter references;
+  these may be used to pass parameters on to another macro.
+
+  For example:
+
+    <<macro (@arg)>>=
+    text <<@arg>>
+    <<other>
     @
-    
-    <<Divide (@n) by [[0]]>>=
-    error
+    <<macro2 (@arg)>>=
+    <<macro [[and <<@arg>>]]>>
     @
-    
-    <<Do it>>=
-    <<Divide [[10]] by [[2]]>> -- 10/2
-    <<Divide [[20]] by [[0]]>> -- error
+    <<macro3 (@arg)>>=
+    <<macro4>>
+
+    <macro4>=
+    can reference <<@arg>> of macro3.
+
+    <<caller>>= text <<macro [[text2]]>> <<macro2 [[text3]]>> <<macro3 [[text3]]>> @
+
+  The caller chunk expands to text text text2 text text3.
+
+* When more than one parameterized chunk could be used to replace a
+  reference, the one with the least parameter replacements is
+  chosen. For equal numbers, the one which does not contain the
+  earliest parameter replacement is chosen.
+
+  For example:
+
+    <<macro (@arg1) and (@arg2)>>=
+    text <<@arg1>> blah <<@arg2>>
     @
+    <<macro [[1]] and (@arg)>>=
+    text blah blah <<@arg>>
+    @
+    <<macro (@arg) and [[2]]>>=
+    text blah blah blah <<@arg>>
+    @
+    <<*>>=
+    <<macro [[a]] and [[b]]>> -- one blah
+    <<macro [[1]] and [[b]]>> -- two blahs
+    <<macro [[a]] and [[2]]>> -- three blahs
+    <<macro [[1]] and [[2]]>> -- two blahs and a warning
 
 The filter names and usage instructions are in the final section, but
-repeated here:
+mostly repeated here:
 
 Extract the following four chunks from the noweb file, make them
 executable (or always prefix them with the path to perl in filter
 command lines), and use as described:
 
-  nt-parm: always use this as a filter when tangling
-  nw-parm-preidx: always use this as a filter before indexing when weaving
-  nw-parm-postidx: always use this as a filter after indexing when weaving
-  noroots-parm: use this in place of noroots
+* nt-parm --- always use this as a filter when tangling.
+
+* nw-parm-preidx --- always use this as a filter before indexing when
+  weaving, before indexing (or implicit indexing, such as -x, -index, etc.).
+
+* nw-parm-postidx: always use this as a filter when weaving, after
+  indexing (or implicit indexing).  If no indexing is done at all, use
+  both of these filters with nothing in between.
+
+* noroots-parm: use this in place of noroots.
 
 For example, to extract the programs and prepare them for use:
 
@@ -116,7 +152,9 @@ For example, to use:
 
 If you are weaving a file that is meant to be tangled together with
 other files, those other files need to be on the nw-parm-idx command
-line.  Repeating the main input file is harmless.  For example:
+line.  Repeating the main input file is harmless.  For example, if
+x.nw and y.nw are normally tangled together, but weaved separately:
 
-  noweave -filter "./nw-parm-preidx morestuff.nw" -index \
-          -filter ./nw-parm-postidx mystuff.nw > mystuff.tex
+  notangle -filter ./nt-parm -R'myroot' x.nw y.nw > out
+  noweave -filter ./nw-parm-preidx y.nw -index \
+          -filter "./nw-parm-postidx y.nw" x.nw > x.tex

@@ -29,7 +29,9 @@ sub find_best_def($$) {
     my (%may_parms, @may_parms_loc);
     my $mayrest = $may;
     my $currest = $curchunk;
+    my $parm_loc = 0;
     while($mayrest =~ /$parm_re(.*)/) {
+      $parm_loc++;
       my $mayp = $1;
       $mayrest = $3;
       $currest =~ /$parm_re(.*)/;
@@ -39,11 +41,11 @@ sub find_best_def($$) {
       next PCHUNK if substr($mayp, 0, 1) eq "[" or substr($curp, 0, 1) eq "(";
       $len++;
       $may_parms{substr($mayp, 1, -1)} = substr($curp, 2, -2);
-      push @may_parms_loc, length $mayrest;
+      push @may_parms_loc, $parm_loc;
     }
     next if $len > $best_len;
     if($len == $best_len) {
-      push @ambig, $best if $#ambig < 1;
+      $ambig[0] = $best if $#ambig == 0;
       push @ambig, $may;
       for(my $i = 0; $i <= $#may_parms_loc; $i++) {
         next PCHUNK if $may_parms_loc[$i] < $best_parms_loc[$i];
@@ -60,9 +62,9 @@ sub find_best_def($$) {
   if($#ambig > 0) {
     print STDERR $loc . "ambiguous expansion of <<$curchunk>>:\n";
     foreach my $may (@ambig) {
-      print "  <<$may>>\n";
-      print " (chosen)" if $may eq $best;
-      print "\n";
+      print STDERR "  <<$may>>";
+      print STDERR " (chosen)" if $may eq $best;
+      print STDERR "\n";
     }
   }
   return ($best, %best_parms);

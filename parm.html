@@ -7,7 +7,7 @@
 
 <h1><a name=toc1>Parameterized Chunks for noweb</a></h1>
 <address>Thomas J. Moore</address>
-<b>Version 1.0<br>16 July, 2013</b>
+<b>Version 1.01<br>23 July, 2013</b>
 <!--title goes here--><p>
 This document is placed in the public domain by its author.
 <p>
@@ -45,12 +45,13 @@ I propose the following syntax changes:
 parameter definitions in parentheses.  All parameter names begin with
 an at-sign (@).  The only characters forbidden in parameter names are
 close-parentheses and invalid NoWeb syntax.  Thus the parameter name
-is terminated by its closing parenthesis.
+is terminated by its closing parenthesis.  Parameter definition syntax
+within in-line code is ignored.
 <p>
 For example:
 <blockquote>
 <pre>
-&lt;&lt;macro (@arg1) with (@arg2)&gt;&gt;=
+&lt;&lt;macro (@arg1) with -(@arg2)- (but not <code>(@arg3)</code>)&gt;&gt;=
 text
 @
 </pre>
@@ -64,7 +65,8 @@ starting with an at-sign are reserved for parameter names.
 <li>Chunk references beginning with an at-sign (@) expand to the
 parameter with that name, as defined by the closest parent taking a
 parameter of that name.  When weaved, such references are not linked
-anywhere, and they are not added to the index.
+anywhere, and they are not added to the index.  When tangled, the
+<code>-L</code> option is ignored.
 <p>
 For example:
 <p>
@@ -100,18 +102,54 @@ For example:
 <p>
 <blockquote>
 <pre>
-&lt;&lt;macro (@arg)&gt;&gt;=
+<a name="NWD2Ba6h0-1">&lt;</a>&lt;macro (@arg)&gt;&gt;=
 text &lt;&lt;@arg&gt;&gt;
 &lt;&lt;other&gt;
 @
+&lt;&lt;macro2 (@arg)&gt;&gt;=
+&lt;&lt;macro [[and &lt;&lt;@arg&gt;&gt;]]&gt;&gt;
+@
+&lt;&lt;macro3 (@arg)&gt;&gt;=
+&lt;&lt;macro4&gt;&gt;
+
+<pre><a name="NW2Ba6h0-4AW0Dt-1" href="#NW2Ba6h0-4AW0Dt-1"><dfn>&lt;macro4&gt;=</dfn></a>
+can reference &lt;&lt;@arg&gt;&gt; of macro3.
+</pre><p>
 &lt;&lt;caller&gt;&gt;=
-text &lt;&lt;macro [[text2]]&gt;&gt; &lt;&lt;macro [[text3]]&gt;&gt;
+text &lt;&lt;macro [[text2]]&gt;&gt; &lt;&lt;macro2 [[text3]]&gt;&gt; &lt;&lt;macro3 [[text3]]&gt;&gt;
 @
 </pre>
 </blockquote>
 
 The <code>caller</code> chunk expands to <code>text text text2 text text3</code>.
 <p>
+<li>When more than one parameterized chunk could be used to replace
+a reference, the one with the least parameter replacements is chosen.
+For equal numbers, the one which does not contain the earliest
+parameter replacement is chosen.
+<p>
+For example:
+<p>
+<blockquote>
+<pre>
+&lt;&lt;macro (@arg1) and (@arg2)&gt;&gt;=
+text &lt;&lt;@arg1&gt;&gt; blah &lt;&lt;@arg2&gt;&gt;
+@
+&lt;&lt;macro [[1]] and (@arg)&gt;&gt;=
+text blah blah &lt;&lt;@arg&gt;&gt;
+@
+&lt;&lt;macro (@arg) and [[2]]&gt;&gt;=
+text blah blah blah &lt;&lt;@arg&gt;&gt;
+@
+&lt;&lt;*&gt;&gt;=
+&lt;&lt;macro [[a]] and [[b]]&gt;&gt; -- one blah
+&lt;&lt;macro [[1]] and [[b]]&gt;&gt; -- two blahs
+&lt;&lt;macro [[a]] and [[2]]&gt;&gt; -- three blahs
+&lt;&lt;macro [[1]] and [[2]]&gt;&gt; -- two blahs and a warning
+@
+</pre>
+</blockquote>
+
 </ul>
 
 <h2><a name=toc4>Tangling</a></h2>
@@ -131,7 +169,7 @@ will rewrite this in C++.<b>]</b>
 and hash table routines, or I will have to use an existing library,
 such as GLib.  While I am not too concerned about non-POSIX systems,
 regular expression support is not necessarily present on non-POSIX
-<a name="NWD2Ba6h0-1">systems, either, unless something like GLib is used.  The problem with</a>
+<a name="NWD2Ba6h0-2">systems, either, unless something like GLib is used.  The problem with</a>
 GLib is that it is not as commonly available as perl, and is also not
 consistently easy to find (e.g. <code>pkg-config</code> is not universally
 available, and the token for <code>GLib</code> is inconsistent), and requires
@@ -140,7 +178,7 @@ as long as I do not use any esoteric libraries or advanced features,
 perl should work with most installations without too much trouble.
 <p>
 <!--\lstset{language=perl}-->
-<pre><a name="NW2Ba6h0-lrTIc-1" href="#NWD2Ba6h0-1"><dfn>&lt;Common Perl Prefix&gt;=</dfn></a> <b>(<a href="#NW2Ba6h0-8ZFCN-1">U-&gt;</a> <a href="#NWD2Ba6h0-7">U-&gt;</a> <a href="#NW2Ba6h0-2ilBMH-1">U-&gt;</a> <a href="#NWD2Ba6h0-C">U-&gt;</a>)</b>
+<pre><a name="NW2Ba6h0-lrTIc-1" href="#NWD2Ba6h0-2"><dfn>&lt;Common Perl Prefix&gt;=</dfn></a> <b>(<a href="#NW2Ba6h0-8ZFCN-1">U-&gt;</a> <a href="#NWD2Ba6h0-8">U-&gt;</a> <a href="#NW2Ba6h0-2ilBMH-1">U-&gt;</a> <a href="#NWD2Ba6h0-D">U-&gt;</a>)</b>
 #!/bin/sh
 #!perl
 # GENERATED FILE:  DO NOT EDIT OR READ THIS FILE
@@ -152,13 +190,13 @@ use strict;
 </pre><p>
 
 <pre><a name="NW2Ba6h0-8ZFCN-1" href="#NW2Ba6h0-8ZFCN-1"><dfn>&lt;nt-parm&gt;=</dfn></a>
-<a name="NW2Ba6h0-8ZFCN-1-u1" href="#NWD2Ba6h0-1"><i>&lt;Common Perl Prefix&gt;</i></a>
+<a name="NW2Ba6h0-8ZFCN-1-u1" href="#NWD2Ba6h0-2"><i>&lt;Common Perl Prefix&gt;</i></a>
 
-<a name="NW2Ba6h0-8ZFCN-1-u2" href="#NWD2Ba6h0-2"><i>&lt;<code>nt-parm</code> local definitions&gt;</i></a>
+<a name="NW2Ba6h0-8ZFCN-1-u2" href="#NWD2Ba6h0-3"><i>&lt;<code>nt-parm</code> local definitions&gt;</i></a>
 
 <a name="NW2Ba6h0-8ZFCN-1-u3" href="#NW2Ba6h0-2SKTXZ-1"><i>&lt;Gather code chunks from NoWeb pipeline&gt;</i></a>
 
-<a name="NW2Ba6h0-8ZFCN-1-u4" href="#NWD2Ba6h0-5"><i>&lt;Mangle and dump pipeline&gt;</i></a>
+<a name="NW2Ba6h0-8ZFCN-1-u4" href="#NWD2Ba6h0-6"><i>&lt;Mangle and dump pipeline&gt;</i></a>
 </pre><p>
 
 Tangling a parameterized chunk is done by duplicating the chunk
@@ -173,7 +211,7 @@ can be safely dumped unmodified to the output.
 All definition text is slurped into a single array.  Since we only
 care about chunk definition and reference lines, array indices are
 only incremented when such lines are found.  A separate hash stores,
-<a name="NWD2Ba6h0-2">for each unique name, a list of all definitions' text array indicies.</a>
+<a name="NWD2Ba6h0-3">for each unique name, a list of all definitions' text array indicies.</a>
 <p>
 When duplicating a definition, the original file and line location are
 needed.  When parsing a reference, the original file and line location
@@ -182,7 +220,7 @@ locations for each, a couple of arrays are added, and the file and
 line for any particular definition or usage text array element is
 stored in the side arrays with the same index.
 <p>
-<pre><a name="NW2Ba6h0-3VdS56-1" href="#NWD2Ba6h0-2"><dfn>&lt;<code>nt-parm</code> local definitions&gt;=</dfn></a> <b>(<a href="#NW2Ba6h0-8ZFCN-1">&lt;-U</a>)</b> <b>[D<a href="#NWD2Ba6h0-4">-&gt;</a>]</b>
+<pre><a name="NW2Ba6h0-3VdS56-1" href="#NWD2Ba6h0-3"><dfn>&lt;<code>nt-parm</code> local definitions&gt;=</dfn></a> <b>(<a href="#NW2Ba6h0-8ZFCN-1">&lt;-U</a>)</b> <b>[D<a href="#NWD2Ba6h0-5">-&gt;</a>]</b>
 my (@notext, @textfile, @textline, %chunks, %parmchunks);
 </pre><p>
 
@@ -205,7 +243,7 @@ while(&lt;STDIN&gt;) {
     $notext[$#notext] .= $_;
     $textfile[$#notext] = $file;
     $textline[$#notext] = $lineno;
-    <a name="NW2Ba6h0-2SKTXZ-1-u1" href="#NWD2Ba6h0-3"><i>&lt;Store <code>$curchunk</code> info&gt;</i></a>
+    <a name="NW2Ba6h0-2SKTXZ-1-u1" href="#NWD2Ba6h0-4"><i>&lt;Store <code>$curchunk</code> info&gt;</i></a>
     push @notext, '';
   } elsif(/^\@end code( |$)/) {
     unless($curchunk) {
@@ -241,11 +279,11 @@ while(&lt;STDIN&gt;) {
 }
 </pre><p>
 
-<a name="NWD2Ba6h0-3">The information stored for each chunk definition is the array index of</a>
+<a name="NWD2Ba6h0-4">The information stored for each chunk definition is the array index of</a>
 the starting and ending line.  This is stored as two array entries for
 each chunk.
 <p>
-<pre><a name="NW2Ba6h0-12J5h9-1" href="#NWD2Ba6h0-3"><dfn>&lt;Store <code>$curchunk</code> info&gt;=</dfn></a> <b>(<a href="#NW2Ba6h0-2SKTXZ-1">&lt;-U</a>)</b> <b>[D<a href="#NW2Ba6h0-12J5h9-2">-&gt;</a>]</b>
+<pre><a name="NW2Ba6h0-12J5h9-1" href="#NWD2Ba6h0-4"><dfn>&lt;Store <code>$curchunk</code> info&gt;=</dfn></a> <b>(<a href="#NW2Ba6h0-2SKTXZ-1">&lt;-U</a>)</b> <b>[D<a href="#NW2Ba6h0-12J5h9-2">-&gt;</a>]</b>
 $chunks{$curchunk} = [] if not $chunks{$curchunk};
 push @{$chunks{$curchunk}}, $#notext;
 </pre><p>
@@ -254,7 +292,7 @@ push @{$chunks{$curchunk}}, $#notext;
 push @{$chunks{$curchunk}}, $#notext;
 </pre><p>
 
-<a name="NWD2Ba6h0-4">Since normal code syntax is used for parameter values, special care</a>
+<a name="NWD2Ba6h0-5">Since normal code syntax is used for parameter values, special care</a>
 must be taken to distinguish them.  This is done by first scanning for
 a chunk which exactly matches the reference.  If this is not found,
 parameterized functions are searched, with the most explicit one
@@ -263,11 +301,11 @@ code and parameter definitions, creating the the key for a hash of
 stripped names.  This reduces the number of chunk names that need to
 be checked every time a potential expansion is found.
 <p>
-<pre><a name="NW2Ba6h0-3VdS56-2" href="#NWD2Ba6h0-2"><dfn>&lt;<code>nt-parm</code> local definitions&gt;+=</dfn></a> <b>(<a href="#NW2Ba6h0-8ZFCN-1">&lt;-U</a>)</b> <b>[<a href="#NWD2Ba6h0-2">&lt;-</a>D<a href="#NW2Ba6h0-3VdS56-3">-&gt;</a>]</b>
+<pre><a name="NW2Ba6h0-3VdS56-2" href="#NWD2Ba6h0-3"><dfn>&lt;<code>nt-parm</code> local definitions&gt;+=</dfn></a> <b>(<a href="#NW2Ba6h0-8ZFCN-1">&lt;-U</a>)</b> <b>[<a href="#NWD2Ba6h0-3">&lt;-</a>D<a href="#NW2Ba6h0-3VdS56-3">-&gt;</a>]</b>
 <a name="NW2Ba6h0-3VdS56-2-u1" href="#NW2Ba6h0-4TkI2a-1"><i>&lt;<code>strip_chunkname</code>&gt;</i></a>
 </pre><p>
 
-<pre><a name="NW2Ba6h0-4TkI2a-1" href="#NW2Ba6h0-4TkI2a-1"><dfn>&lt;<code>strip_chunkname</code>&gt;=</dfn></a> <b>(<a href="#NWD2Ba6h0-4">&lt;-U</a> <a href="#NWD2Ba6h0-8">U-&gt;</a> <a href="#NWD2Ba6h0-C">U-&gt;</a>)</b>
+<pre><a name="NW2Ba6h0-4TkI2a-1" href="#NW2Ba6h0-4TkI2a-1"><dfn>&lt;<code>strip_chunkname</code>&gt;=</dfn></a> <b>(<a href="#NWD2Ba6h0-5">&lt;-U</a> <a href="#NWD2Ba6h0-9">U-&gt;</a> <a href="#NWD2Ba6h0-D">U-&gt;</a>)</b>
 # note: $parm_re's first capture group is the parameter
 #       $parm_re's second cpature group is for recursion (ignore!)
 my $parm_re = '(\(\@[^)]*\)|(?&lt;!@)\[\[((?:[^][]|\[(?-1)\])*)\]\])';
@@ -279,14 +317,14 @@ sub strip_chunkname($)
 }
 </pre><p>
 
-<pre><a name="NW2Ba6h0-12J5h9-2" href="#NWD2Ba6h0-3"><dfn>&lt;Store <code>$curchunk</code> info&gt;+=</dfn></a> <b>(<a href="#NW2Ba6h0-2SKTXZ-1">&lt;-U</a>)</b> <b>[<a href="#NWD2Ba6h0-3">&lt;-</a>D]</b>
+<pre><a name="NW2Ba6h0-12J5h9-2" href="#NWD2Ba6h0-4"><dfn>&lt;Store <code>$curchunk</code> info&gt;+=</dfn></a> <b>(<a href="#NW2Ba6h0-2SKTXZ-1">&lt;-U</a>)</b> <b>[<a href="#NWD2Ba6h0-4">&lt;-</a>D]</b>
 my $strip = strip_chunkname $curchunk;
 $parmchunks{$strip} = {} if not $parmchunks{$strip};
 ${$parmchunks{$strip}}{$curchunk} = 1;
 </pre><p>
 
 Once all has been collected, the duplicated chunks can be dumped.
-<a name="NWD2Ba6h0-5">This is done by iterating through the array, looking for </a><code>@use</code>es.
+<a name="NWD2Ba6h0-6">This is done by iterating through the array, looking for </a><code>@use</code>es.
 Any <code>@use</code> which is not already present in <code>%chunks</code> is stripped of
 parameter values, and checked against <code>%parmchunks</code>.  If it matches,
 each possible expansion is checked, counting the number of parameter
@@ -295,7 +333,7 @@ If two names have an equal number of substitutions, the one which has
 in-line code at the first position where the two differ is chosen, and
 a warning is issued.
 <p>
-<pre><a name="NW2Ba6h0-294wLq-1" href="#NWD2Ba6h0-5"><dfn>&lt;Mangle and dump pipeline&gt;=</dfn></a> <b>(<a href="#NW2Ba6h0-8ZFCN-1">&lt;-U</a>)</b>
+<pre><a name="NW2Ba6h0-294wLq-1" href="#NWD2Ba6h0-6"><dfn>&lt;Mangle and dump pipeline&gt;=</dfn></a> <b>(<a href="#NW2Ba6h0-8ZFCN-1">&lt;-U</a>)</b>
 DUMP: for(my $i = 0; $i &lt;= $#notext; $i++) {
   my $u = $notext[$i];
   next if $u !~ /^\@use (.*)$/;
@@ -303,11 +341,11 @@ DUMP: for(my $i = 0; $i &lt;= $#notext; $i++) {
   next if $chunks{$curchunk};
   my ($best, %best_parms) = find_best_def(idx_to_loc($i), $curchunk);
   next unless $best;
-  <a name="NW2Ba6h0-294wLq-1-u1" href="#NWD2Ba6h0-6"><i>&lt;Dump best definition match for <code>$curchunk</code>&gt;</i></a>
+  <a name="NW2Ba6h0-294wLq-1-u1" href="#NWD2Ba6h0-7"><i>&lt;Dump best definition match for <code>$curchunk</code>&gt;</i></a>
 }
 </pre><p>
 
-<pre><a name="NW2Ba6h0-3VdS56-3" href="#NWD2Ba6h0-2"><dfn>&lt;<code>nt-parm</code> local definitions&gt;+=</dfn></a> <b>(<a href="#NW2Ba6h0-8ZFCN-1">&lt;-U</a>)</b> <b>[<a href="#NWD2Ba6h0-4">&lt;-</a>D<a href="#NW2Ba6h0-3VdS56-4">-&gt;</a>]</b>
+<pre><a name="NW2Ba6h0-3VdS56-3" href="#NWD2Ba6h0-3"><dfn>&lt;<code>nt-parm</code> local definitions&gt;+=</dfn></a> <b>(<a href="#NW2Ba6h0-8ZFCN-1">&lt;-U</a>)</b> <b>[<a href="#NWD2Ba6h0-5">&lt;-</a>D<a href="#NW2Ba6h0-3VdS56-4">-&gt;</a>]</b>
 <a name="NW2Ba6h0-3VdS56-3-u1" href="#NW2Ba6h0-2Je08m-1"><i>&lt;<code>find_best_def</code>&gt;</i></a>
 
 sub idx_to_loc($) {
@@ -316,7 +354,7 @@ sub idx_to_loc($) {
 }
 </pre><p>
 
-<pre><a name="NW2Ba6h0-2Je08m-1" href="#NW2Ba6h0-2Je08m-1"><dfn>&lt;<code>find_best_def</code>&gt;=</dfn></a> <b>(<a href="#NW2Ba6h0-3VdS56-3">&lt;-U</a> <a href="#NWD2Ba6h0-A">U-&gt;</a> <a href="#NWD2Ba6h0-C">U-&gt;</a>)</b>
+<pre><a name="NW2Ba6h0-2Je08m-1" href="#NW2Ba6h0-2Je08m-1"><dfn>&lt;<code>find_best_def</code>&gt;=</dfn></a> <b>(<a href="#NW2Ba6h0-3VdS56-3">&lt;-U</a> <a href="#NWD2Ba6h0-B">U-&gt;</a> <a href="#NWD2Ba6h0-D">U-&gt;</a>)</b>
 sub find_best_def($$) {
   my ($loc, $curchunk) = @_;
   my $pchunks = $parmchunks{strip_chunkname $curchunk};
@@ -329,7 +367,9 @@ sub find_best_def($$) {
     my (%may_parms, @may_parms_loc);
     my $mayrest = $may;
     my $currest = $curchunk;
+    my $parm_loc = 0;
     while($mayrest =~ /$parm_re(.*)/) {
+      $parm_loc++;
       my $mayp = $1;
       $mayrest = $3;
       $currest =~ /$parm_re(.*)/;
@@ -339,11 +379,11 @@ sub find_best_def($$) {
       next PCHUNK if substr($mayp, 0, 1) eq &quot;[&quot; or substr($curp, 0, 1) eq &quot;(&quot;;
       $len++;
       $may_parms{substr($mayp, 1, -1)} = substr($curp, 2, -2);
-      push @may_parms_loc, length $mayrest;
+      push @may_parms_loc, $parm_loc;
     }
     next if $len &gt; $best_len;
     if($len == $best_len) {
-      push @ambig, $best if $#ambig &lt; 1;
+      $ambig[0] = $best if $#ambig == 0;
       push @ambig, $may;
       for(my $i = 0; $i &lt;= $#may_parms_loc; $i++) {
         next PCHUNK if $may_parms_loc[$i] &lt; $best_parms_loc[$i];
@@ -360,9 +400,9 @@ sub find_best_def($$) {
   if($#ambig &gt; 0) {
     print STDERR $loc . &quot;ambiguous expansion of &lt;&lt;$curchunk&gt;&gt;:\n&quot;;
     foreach my $may (@ambig) {
-      print &quot;  &lt;&lt;$may&gt;&gt;\n&quot;;
-      print &quot; (chosen)&quot; if $may eq $best;
-      print &quot;\n&quot;;
+      print STDERR &quot;  &lt;&lt;$may&gt;&gt;&quot;;
+      print STDERR &quot; (chosen)&quot; if $may eq $best;
+      print STDERR &quot;\n&quot;;
     }
   }
   return ($best, %best_parms);
@@ -371,7 +411,7 @@ sub find_best_def($$) {
 
 To dump a chunk, any <code>@use</code> references within the chunk must be
 checked.  Those which refer to a parameter are replaced by the
-<a name="NWD2Ba6h0-6">parameter's value.  Those which refer to a chunk with parameter</a>
+<a name="NWD2Ba6h0-7">parameter's value.  Those which refer to a chunk with parameter</a>
 expansions cause that chunk to be duplicated, as well, with the root
 chunk name as a prefix, separated from the real name by something that
 is unlikely to occur in real names (<code>&lt;&lt;&gt;&gt;</code>).  The current set of
@@ -380,7 +420,7 @@ references (even within parameter values) are properly expanded.
 Naturally, the top-level reference can't use a parameter reference,
 since no parameters are defined yet.
 <p>
-<pre><a name="NW2Ba6h0-1UHuEb-1" href="#NWD2Ba6h0-6"><dfn>&lt;Dump best definition match for <code>$curchunk</code>&gt;=</dfn></a> <b>(<a href="#NWD2Ba6h0-5">&lt;-U</a>)</b>
+<pre><a name="NW2Ba6h0-1UHuEb-1" href="#NWD2Ba6h0-7"><dfn>&lt;Dump best definition match for <code>$curchunk</code>&gt;=</dfn></a> <b>(<a href="#NWD2Ba6h0-6">&lt;-U</a>)</b>
 foreach my $v (values %best_parms) {
   foreach my $bad_val ($v =~ /(?&lt;!@)(&lt;&lt;@.*?(?&lt;!@)&gt;&gt;)/) {
     # since we're not notangle, we have to expand every single chunk
@@ -394,11 +434,12 @@ foreach my $v (values %best_parms) {
 print dump_def($curchunk, $curchunk . '&lt;&lt;&gt;&gt;', $best, %best_parms);
 </pre><p>
 
-<pre><a name="NW2Ba6h0-3VdS56-4" href="#NWD2Ba6h0-2"><dfn>&lt;<code>nt-parm</code> local definitions&gt;+=</dfn></a> <b>(<a href="#NW2Ba6h0-8ZFCN-1">&lt;-U</a>)</b> <b>[<a href="#NW2Ba6h0-3VdS56-3">&lt;-</a>D<a href="#NW2Ba6h0-3VdS56-5">-&gt;</a>]</b>
+<pre><a name="NW2Ba6h0-3VdS56-4" href="#NWD2Ba6h0-3"><dfn>&lt;<code>nt-parm</code> local definitions&gt;+=</dfn></a> <b>(<a href="#NW2Ba6h0-8ZFCN-1">&lt;-U</a>)</b> <b>[<a href="#NW2Ba6h0-3VdS56-3">&lt;-</a>D<a href="#NW2Ba6h0-3VdS56-5">-&gt;</a>]</b>
 sub dump_def($$$%) {
   my ($new, $prefix, $old, %parms) = @_;
   my ($ret, $subdefs);
   my $chunk = $chunks{$old};
+  $chunks{$new} = [];
   for(my $c = 0; $c &lt;= $#$chunk; $c += 2) {
     my $i = $$chunk[$c];
     my $last = $$chunk[$c + 1];
@@ -449,25 +490,29 @@ sub dump_def($$$%) {
               $new_parms{$p} = $best_parms{$p};
             }
             # add w/ uniquifier prefix if implicit parms referenced
-            my $has_ref = has_parmref($new_chunk, \%new_parms, \%best_parms);
+            my $has_ref = has_parmref($best, \%new_parms, \%best_parms);
             my $sub_name = $has_ref ? $prefix . $new_chunk : $new_chunk;
             $ret .= &quot;\@use $sub_name\n&quot;;
             # skip if already there
             next if $chunks{$sub_name};
-            $subdefs .= dump_def($sub_name, $prefix, $best, %new_parms);
+            $subdefs .= dump_def($sub_name, $sub_name, $best, %new_parms);
           } else {
-            $ret .= &quot;\@use $new_chunk\n&quot;;
+            my $has_ref = has_parmref($best, \%parms, undef);
+            my $sub_name = $has_ref ? $prefix . $new_chunk : $new_chunk;
+            $ret .= &quot;\@use $sub_name\n&quot;;
+            # skip if already there
+            next if $chunks{$sub_name};
+            $subdefs .= dump_def($sub_name, $prefix, $new_chunk, %parms);
           }
         }
       }
     }
   }
-  $chunks{$new} = [];
   return $ret . $subdefs;
 }
 </pre><p>
 
-<pre><a name="NW2Ba6h0-3VdS56-5" href="#NWD2Ba6h0-2"><dfn>&lt;<code>nt-parm</code> local definitions&gt;+=</dfn></a> <b>(<a href="#NW2Ba6h0-8ZFCN-1">&lt;-U</a>)</b> <b>[<a href="#NW2Ba6h0-3VdS56-4">&lt;-</a>D]</b>
+<pre><a name="NW2Ba6h0-3VdS56-5" href="#NWD2Ba6h0-3"><dfn>&lt;<code>nt-parm</code> local definitions&gt;+=</dfn></a> <b>(<a href="#NW2Ba6h0-8ZFCN-1">&lt;-U</a>)</b> <b>[<a href="#NW2Ba6h0-3VdS56-4">&lt;-</a>D]</b>
 sub has_parmref($$$) {
   my ($chunkparts, $impl_parms, $direct_parms) = @_;
   $chunkparts = $chunks{$chunkparts};
@@ -480,8 +525,17 @@ sub has_parmref($$$) {
         foreach my $pass ($1 =~ /(?&lt;!@)&lt;&lt;(.*?)&gt;&gt;/) {
           return 1 if $$impl_parms{$1} and (not $direct_parms or not $$direct_parms{$1});
         }
-        next if not $chunks{$1};
-        return 1 if has_parmref($1, $impl_parms, $direct_parms);
+        if($chunks{$1}) {
+          return 1 if has_parmref($1, $impl_parms, undef);
+        } else {
+          my ($best, %best_parms) = find_best_def(idx_to_loc($low), $1);
+          next if not $best;
+          my %new_impl = (%$impl_parms);
+          foreach my $p (keys %best_parms) {
+            $new_impl{$p} = $best_parms{$p};
+          }
+          return 1 if has_parmref($best, \%new_impl, \%best_parms);
+        }
       }
     }
   }
@@ -494,7 +548,7 @@ sub has_parmref($$$) {
 These enhancements also require changes to the weavers.  No particular
 effort will be made to typeset things nicely.  Parameter references
 should be typeset as chunk references, but without the links (where
-<a name="NWD2Ba6h0-7">would they link to?).  To do that, they need to be hidden from the</a>
+<a name="NWD2Ba6h0-8">would they link to?).  To do that, they need to be hidden from the</a>
 indexer, and unhidden after the indexer.  Likewise, to get cross
 references right, references to parameterized chunks with actual
 parameters need to be converted to the definition format for the
@@ -503,13 +557,13 @@ accomplished by two filters:  one for before indexing, and one for
 after.
 <p>
 <!--\lstset{language=perl}-->
-<pre><a name="NW2Ba6h0-3oiH7L-1" href="#NWD2Ba6h0-7"><dfn>&lt;nw-parm-preidx&gt;=</dfn></a> <b>[D<a href="#NWD2Ba6h0-8">-&gt;</a>]</b>
-<a name="NW2Ba6h0-3oiH7L-1-u1" href="#NWD2Ba6h0-1"><i>&lt;Common Perl Prefix&gt;</i></a>
+<pre><a name="NW2Ba6h0-3oiH7L-1" href="#NWD2Ba6h0-8"><dfn>&lt;nw-parm-preidx&gt;=</dfn></a> <b>[D<a href="#NWD2Ba6h0-9">-&gt;</a>]</b>
+<a name="NW2Ba6h0-3oiH7L-1-u1" href="#NWD2Ba6h0-2"><i>&lt;Common Perl Prefix&gt;</i></a>
 
 </pre><p>
 
-<pre><a name="NW2Ba6h0-2ilBMH-1" href="#NW2Ba6h0-2ilBMH-1"><dfn>&lt;nw-parm-postidx&gt;=</dfn></a> <b>[D<a href="#NWD2Ba6h0-B">-&gt;</a>]</b>
-<a name="NW2Ba6h0-2ilBMH-1-u1" href="#NWD2Ba6h0-1"><i>&lt;Common Perl Prefix&gt;</i></a>
+<pre><a name="NW2Ba6h0-2ilBMH-1" href="#NW2Ba6h0-2ilBMH-1"><dfn>&lt;nw-parm-postidx&gt;=</dfn></a> <b>[D<a href="#NWD2Ba6h0-C">-&gt;</a>]</b>
+<a name="NW2Ba6h0-2ilBMH-1-u1" href="#NWD2Ba6h0-2"><i>&lt;Common Perl Prefix&gt;</i></a>
 
 </pre><p>
 
@@ -519,7 +573,7 @@ The only way to do this is to know the names of all chunks.  Since
 weaving does not require all tangling inputs, but this particular task
 does require them, any inputs not included in the weaving process must
 be specified on the filter's command line.  While it might be nice to
-<a name="NWD2Ba6h0-8">use the standard markup tool for this, it is not present in noweb 3.</a>
+<a name="NWD2Ba6h0-9">use the standard markup tool for this, it is not present in noweb 3.</a>
 Instead, the file is parsed directly, with a very limited view of what
 constitutes the start of a chunk.  This probably needs improvement.
 <p>
@@ -528,7 +582,7 @@ arrays:  one indexed by its real name, and one indexed by its name
 with all parameter definitions and references stripped out.  That way,
 finding the actual chunk to use for a macro reference is easier.
 <p>
-<pre><a name="NW2Ba6h0-3oiH7L-2" href="#NWD2Ba6h0-7"><dfn>&lt;nw-parm-preidx&gt;+=</dfn></a> <b>[<a href="#NWD2Ba6h0-7">&lt;-</a>D<a href="#NWD2Ba6h0-9">-&gt;</a>]</b>
+<pre><a name="NW2Ba6h0-3oiH7L-2" href="#NWD2Ba6h0-8"><dfn>&lt;nw-parm-preidx&gt;+=</dfn></a> <b>[<a href="#NWD2Ba6h0-8">&lt;-</a>D<a href="#NWD2Ba6h0-A">-&gt;</a>]</b>
 <a name="NW2Ba6h0-3oiH7L-2-u1" href="#NW2Ba6h0-4TkI2a-1"><i>&lt;<code>strip_chunkname</code>&gt;</i></a>
 
 my (%chunks, %parmchunks);
@@ -548,12 +602,12 @@ foreach my $a (@ARGV) {
 }
 </pre><p>
 
-<a name="NWD2Ba6h0-9">The filter process needs to scan the file more than once.  The first</a>
+<a name="NWD2Ba6h0-A">The filter process needs to scan the file more than once.  The first</a>
 time, it gathers definitions just like it did for the command-line
 arguments.  For convenience, the file is just read into an array of
 plain text lines for processing.
 <p>
-<pre><a name="NW2Ba6h0-3oiH7L-3" href="#NWD2Ba6h0-7"><dfn>&lt;nw-parm-preidx&gt;+=</dfn></a> <b>[<a href="#NWD2Ba6h0-8">&lt;-</a>D<a href="#NWD2Ba6h0-A">-&gt;</a>]</b>
+<pre><a name="NW2Ba6h0-3oiH7L-3" href="#NWD2Ba6h0-8"><dfn>&lt;nw-parm-preidx&gt;+=</dfn></a> <b>[<a href="#NWD2Ba6h0-9">&lt;-</a>D<a href="#NWD2Ba6h0-B">-&gt;</a>]</b>
 my @file = &lt;STDIN&gt;;
 foreach my $l (@file) {
   next unless($l =~ m/^\@defn (.*)$/);
@@ -570,7 +624,7 @@ do so, it will replace its name with the parameterized definition, and
 save its old name using <code>@nwparmcall</code>.  The matching method is
 copied from the tangler.  The main difference is that file and line
 information are not tracked by this filter, so the location string is
-<a name="NWD2Ba6h0-A">always blank.</a>
+<a name="NWD2Ba6h0-B">always blank.</a>
 <p>
 Parameter references are simply hidden away by renaming them to
 <code>@nwparmuse</code>.
@@ -579,7 +633,7 @@ As a special hack, in order to highlight parameters better, an extra
 set of square brackets is placed around them.  This repeasts some of
 the work that <code>find_best_def</code> does, but that's not too terrible.
 <p>
-<pre><a name="NW2Ba6h0-3oiH7L-4" href="#NWD2Ba6h0-7"><dfn>&lt;nw-parm-preidx&gt;+=</dfn></a> <b>[<a href="#NWD2Ba6h0-9">&lt;-</a>D]</b>
+<pre><a name="NW2Ba6h0-3oiH7L-4" href="#NWD2Ba6h0-8"><dfn>&lt;nw-parm-preidx&gt;+=</dfn></a> <b>[<a href="#NWD2Ba6h0-A">&lt;-</a>D]</b>
 <a name="NW2Ba6h0-3oiH7L-4-u1" href="#NW2Ba6h0-2Je08m-1"><i>&lt;<code>find_best_def</code>&gt;</i></a>
 
 foreach my $l (@file) {
@@ -613,7 +667,7 @@ foreach my $l (@file) {
 }
 </pre><p>
 
-<a name="NWD2Ba6h0-B">For the third pass, done after the index, the above-added tags are</a>
+<a name="NWD2Ba6h0-C">For the third pass, done after the index, the above-added tags are</a>
 reverted.
 <p>
 <pre><a name="NW2Ba6h0-2ilBMH-2" href="#NW2Ba6h0-2ilBMH-1"><dfn>&lt;nw-parm-postidx&gt;+=</dfn></a> <b>[<a href="#NW2Ba6h0-2ilBMH-1">&lt;-</a>D]</b>
@@ -637,7 +691,7 @@ while(&lt;STDIN&gt;) {
 This is not the end of it:  <code>noroots</code> (noweb-2 only) needs changes
 as well.  There is no reason to retain the pipeline for this tool, so
 it could be standalone and not depend on the markup parser.  However,
-<a name="NWD2Ba6h0-C">keeping the parsing to the one official parser might be a good idea.</a>
+<a name="NWD2Ba6h0-D">keeping the parsing to the one official parser might be a good idea.</a>
 The <code>noroots</code> script is not a simple pipeline, though:  it includes
 the entire ``backend'' in-line.  To make a replacement script, the
 library location is lifted using a trick filter in notangle.
@@ -646,8 +700,8 @@ The procedure is the same as standard <code>noroots</code>, except that after
 collecting all usages, a pass is made over the usage array to add
 parameterized usages.
 <p>
-<pre><a name="NW2Ba6h0-oHdeg-1" href="#NWD2Ba6h0-C"><dfn>&lt;noroots-parm&gt;=</dfn></a>
-<a name="NW2Ba6h0-oHdeg-1-u1" href="#NWD2Ba6h0-1"><i>&lt;Common Perl Prefix&gt;</i></a>
+<pre><a name="NW2Ba6h0-oHdeg-1" href="#NWD2Ba6h0-D"><dfn>&lt;noroots-parm&gt;=</dfn></a>
+<a name="NW2Ba6h0-oHdeg-1-u1" href="#NWD2Ba6h0-2"><i>&lt;Common Perl Prefix&gt;</i></a>
 
 my $LIB = `notangle -filter 'echo \$LIB &gt;&amp;3' /dev/null 2&gt;/dev/null 3&gt;&amp;1`;
 chomp $LIB;
@@ -687,19 +741,20 @@ for my $d (keys %chunks) {
 </pre>
 
 <ul>
-<li><a href="#NW2Ba6h0-2Je08m-1"><i>&lt;<code>find_best_def</code>&gt;</i></a>: <a href="#NW2Ba6h0-3VdS56-3">U1</a>, <a href="#NW2Ba6h0-2Je08m-1">D2</a>, <a href="#NWD2Ba6h0-A">U3</a>, <a href="#NWD2Ba6h0-C">U4</a>
-<li><a href="#NWD2Ba6h0-2"><i>&lt;<code>nt-parm</code> local definitions&gt;</i></a>: <a href="#NW2Ba6h0-8ZFCN-1">U1</a>, <a href="#NWD2Ba6h0-2">D2</a>, <a href="#NWD2Ba6h0-4">D3</a>, <a href="#NW2Ba6h0-3VdS56-3">D4</a>, <a href="#NW2Ba6h0-3VdS56-4">D5</a>, <a href="#NW2Ba6h0-3VdS56-5">D6</a>
-<li><a href="#NW2Ba6h0-4TkI2a-1"><i>&lt;<code>strip_chunkname</code>&gt;</i></a>: <a href="#NWD2Ba6h0-4">U1</a>, <a href="#NW2Ba6h0-4TkI2a-1">D2</a>, <a href="#NWD2Ba6h0-8">U3</a>, <a href="#NWD2Ba6h0-C">U4</a>
-<li><a href="#NWD2Ba6h0-1"><i>&lt;Common Perl Prefix&gt;</i></a>: <a href="#NWD2Ba6h0-1">D1</a>, <a href="#NW2Ba6h0-8ZFCN-1">U2</a>, <a href="#NWD2Ba6h0-7">U3</a>, <a href="#NW2Ba6h0-2ilBMH-1">U4</a>, <a href="#NWD2Ba6h0-C">U5</a>
-<li><a href="#NWD2Ba6h0-6"><i>&lt;Dump best definition match for <code>$curchunk</code>&gt;</i></a>: <a href="#NWD2Ba6h0-5">U1</a>, <a href="#NWD2Ba6h0-6">D2</a>
+<li><a href="#NW2Ba6h0-2Je08m-1"><i>&lt;<code>find_best_def</code>&gt;</i></a>: <a href="#NW2Ba6h0-3VdS56-3">U1</a>, <a href="#NW2Ba6h0-2Je08m-1">D2</a>, <a href="#NWD2Ba6h0-B">U3</a>, <a href="#NWD2Ba6h0-D">U4</a>
+<li><a href="#NWD2Ba6h0-3"><i>&lt;<code>nt-parm</code> local definitions&gt;</i></a>: <a href="#NW2Ba6h0-8ZFCN-1">U1</a>, <a href="#NWD2Ba6h0-3">D2</a>, <a href="#NWD2Ba6h0-5">D3</a>, <a href="#NW2Ba6h0-3VdS56-3">D4</a>, <a href="#NW2Ba6h0-3VdS56-4">D5</a>, <a href="#NW2Ba6h0-3VdS56-5">D6</a>
+<li><a href="#NW2Ba6h0-4TkI2a-1"><i>&lt;<code>strip_chunkname</code>&gt;</i></a>: <a href="#NWD2Ba6h0-5">U1</a>, <a href="#NW2Ba6h0-4TkI2a-1">D2</a>, <a href="#NWD2Ba6h0-9">U3</a>, <a href="#NWD2Ba6h0-D">U4</a>
+<li><a href="#NWD2Ba6h0-2"><i>&lt;Common Perl Prefix&gt;</i></a>: <a href="#NWD2Ba6h0-2">D1</a>, <a href="#NW2Ba6h0-8ZFCN-1">U2</a>, <a href="#NWD2Ba6h0-8">U3</a>, <a href="#NW2Ba6h0-2ilBMH-1">U4</a>, <a href="#NWD2Ba6h0-D">U5</a>
+<li><a href="#NWD2Ba6h0-7"><i>&lt;Dump best definition match for <code>$curchunk</code>&gt;</i></a>: <a href="#NWD2Ba6h0-6">U1</a>, <a href="#NWD2Ba6h0-7">D2</a>
 <li><a href="#NW2Ba6h0-17ZUWn-1"><i>&lt;Finish off <code>$curchunk</code>&gt;</i></a>: <a href="#NW2Ba6h0-2SKTXZ-1">U1</a>, <a href="#NW2Ba6h0-17ZUWn-1">D2</a>
 <li><a href="#NW2Ba6h0-2SKTXZ-1"><i>&lt;Gather code chunks from NoWeb pipeline&gt;</i></a>: <a href="#NW2Ba6h0-8ZFCN-1">U1</a>, <a href="#NW2Ba6h0-2SKTXZ-1">D2</a>
-<li><a href="#NWD2Ba6h0-5"><i>&lt;Mangle and dump pipeline&gt;</i></a>: <a href="#NW2Ba6h0-8ZFCN-1">U1</a>, <a href="#NWD2Ba6h0-5">D2</a>
-<li><a href="#NWD2Ba6h0-C"><i>&lt;noroots-parm&gt;</i></a>: <a href="#NWD2Ba6h0-C">D1</a>
+<li><a href="#NW2Ba6h0-4AW0Dt-1"><i>&lt;macro4&gt;</i></a>: <a href="#NW2Ba6h0-4AW0Dt-1">D1</a>
+<li><a href="#NWD2Ba6h0-6"><i>&lt;Mangle and dump pipeline&gt;</i></a>: <a href="#NW2Ba6h0-8ZFCN-1">U1</a>, <a href="#NWD2Ba6h0-6">D2</a>
+<li><a href="#NWD2Ba6h0-D"><i>&lt;noroots-parm&gt;</i></a>: <a href="#NWD2Ba6h0-D">D1</a>
 <li><a href="#NW2Ba6h0-8ZFCN-1"><i>&lt;nt-parm&gt;</i></a>: <a href="#NW2Ba6h0-8ZFCN-1">D1</a>
-<li><a href="#NW2Ba6h0-2ilBMH-1"><i>&lt;nw-parm-postidx&gt;</i></a>: <a href="#NW2Ba6h0-2ilBMH-1">D1</a>, <a href="#NWD2Ba6h0-B">D2</a>
-<li><a href="#NWD2Ba6h0-7"><i>&lt;nw-parm-preidx&gt;</i></a>: <a href="#NWD2Ba6h0-7">D1</a>, <a href="#NWD2Ba6h0-8">D2</a>, <a href="#NWD2Ba6h0-9">D3</a>, <a href="#NWD2Ba6h0-A">D4</a>
-<li><a href="#NWD2Ba6h0-3"><i>&lt;Store <code>$curchunk</code> info&gt;</i></a>: <a href="#NW2Ba6h0-2SKTXZ-1">U1</a>, <a href="#NWD2Ba6h0-3">D2</a>, <a href="#NW2Ba6h0-12J5h9-2">D3</a>
+<li><a href="#NW2Ba6h0-2ilBMH-1"><i>&lt;nw-parm-postidx&gt;</i></a>: <a href="#NW2Ba6h0-2ilBMH-1">D1</a>, <a href="#NWD2Ba6h0-C">D2</a>
+<li><a href="#NWD2Ba6h0-8"><i>&lt;nw-parm-preidx&gt;</i></a>: <a href="#NWD2Ba6h0-8">D1</a>, <a href="#NWD2Ba6h0-9">D2</a>, <a href="#NWD2Ba6h0-A">D3</a>, <a href="#NWD2Ba6h0-B">D4</a>
+<li><a href="#NWD2Ba6h0-4"><i>&lt;Store <code>$curchunk</code> info&gt;</i></a>: <a href="#NW2Ba6h0-2SKTXZ-1">U1</a>, <a href="#NWD2Ba6h0-4">D2</a>, <a href="#NW2Ba6h0-12J5h9-2">D3</a>
 </ul>
 <ul>
 </ul>
@@ -709,7 +764,8 @@ for my $d (keys %chunks) {
 <p>
 In summary, to use this, see the introduction for syntax.  Extract the
 following four chunks from this document, make them executable (or
-always prefix them with the path to perl), and use as described:
+always prefix them with the path to perl in filter command lines), and
+use as described:
 <p>
 <ul>
 <li><code>nt-parm</code> --- always use this as a filter when tangling.
@@ -731,8 +787,9 @@ noweave -filter ./nw-parm-preidx -index \
 
 If you are weaving a file that is meant to be tangled together with
 other files, those other files need to be given on the
-<code>nw-parm-preidx</code> command line.  For example, if <code>x.nw</code> and
-<code><a name="NWD2Ba6h0-D">y.nw</a></code> are normally tangled together:
+<code>nw-parm-preidx</code> command line.  Repeating the main input file is
+harmless.  For example, if <code>x.nw</code> and <code>y.nw</code> are normally tangled
+<a name="NWD2Ba6h0-E">together, but weaved separately:</a>
 <p>
 <pre>
 notangle -filter ./nt-parm -R'myroot' x.nw y.nw &gt; out

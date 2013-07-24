@@ -243,6 +243,13 @@ while(&lt;STDIN&gt;) {
       print STDERR &quot;$file:$lineno: invalid chunk syntax\n&quot;;
       exit 1;
     }
+    if(substr($1, 0, 1) eq '@') {
+      print STDERR &quot;$file:$lineno: &quot;
+      print STDERR &quot;initial @ is reserved for parameter names\n&quot;;
+      print &quot;\@nl\n\@end code\n&quot; # prevent malformed code messages
+      print &quot;\@fatal invalid chunk name\n&quot;;
+      exit 1;
+    }
     $curchunk = $1;
     $notext[$#notext] .= $_;
     $textfile[$#notext] = $file;
@@ -369,10 +376,11 @@ sub find_best_def($$) {
 }
 </pre><p>
 
-<a name="NWD2Ba6h0-6">Each possible expansion is checked.  While it's doing that, since it</a>
-already has the parameter names and their values parsed out, a symbol
-table is built for the parameters.  As you may have noticed above, the
-symbol table is returned along with the matched chunk name.
+<a name="NWD2Ba6h0-6">Each possible expansion is checked, keeping the best.  While it's</a>
+doing that, since it already has the parameter names and their values
+parsed out, a symbol table is built for the parameters.  As you may
+have noticed above, the symbol table is returned along with the
+matched chunk name.
 <p>
 <pre><a name="NW2Ba6h0-22ZgVH-1" href="#NWD2Ba6h0-6"><dfn>&lt;Find best definition match for <code>$curchunk</code>&gt;=</dfn></a> <b>(<a href="#NW2Ba6h0-2Je08m-1">&lt;-U</a>)</b>
 my ($best, %best_parms);
@@ -824,13 +832,13 @@ foreach my $l (@file) {
 
 For the second pass, an attempt is made to match a chunk reference
 with a definition.  If it matches, and requires parameter expansion to
-do so, it will replace its name with the parameterized definition, and
-save its old name using <code>@nwparmcall</code>.  The matching method is
+do so, its name is replaced with the parameterized definition, and its
+old name is saved using <code>@nwparmcall</code>.  The matching method is
 copied from the tangler.  The main difference is that file and line
 information are not tracked by this filter, so the location string is
 <a name="NWD2Ba6h0-N">always blank.</a>
 <p>
-Parameter references are simply hidden away by renaming them to
+Parameter references are simply hidden by renaming them to
 <code>@nwparmuse</code>.
 <p>
 As a special hack, in order to highlight parameters better, an extra

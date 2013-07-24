@@ -206,6 +206,13 @@ while(<STDIN>) {
       print STDERR "$file:$lineno: invalid chunk syntax\n";
       exit 1;
     }
+    if(substr($1, 0, 1) eq '@') {
+      print STDERR "$file:$lineno: "
+      print STDERR "initial @ is reserved for parameter names\n";
+      print "\@nl\n\@end code\n" # prevent malformed code messages
+      print "\@fatal invalid chunk name\n";
+      exit 1;
+    }
     $curchunk = $1;
     $notext[$#notext] .= $_;
     $textfile[$#notext] = $file;

@@ -7,7 +7,8 @@ eval 'exec perl -x -f "$0" "$@"'
 
 use strict;
 
-my (@notext, @textfile, @textline, %chunks, %parmchunks);
+my (@notext, @textfile, @textline, %chunks);
+my %parmchunks;
 # note: $parm_re's first capture group is the parameter
 #       $parm_re's second cpature group is for recursion (ignore!)
 my $parm_re = '(\(\@[^)]*\)|(?<!@)\[\[((?:[^][]|\[(?-1)\])*)\]\])';
@@ -21,15 +22,17 @@ sub find_best_def($$) {
   my ($loc, $curchunk) = @_;
   my $pchunks = $parmchunks{strip_chunkname $curchunk};
   return if not $pchunks;
-  my ($best, $best_len, %best_parms, @best_parms_loc);
-  $best_len = length $curchunk;
-  my @ambig;
+  my ($best, %best_parms);
+  my $best_len = length $curchunk; # larger than all possible lengths
+  my @best_parms_loc;
+  my (@ambig, $bad_ambig);
   PCHUNK: foreach my $may (keys %$pchunks) {
+    my %may_parms;
     my $len = 0;
-    my (%may_parms, @may_parms_loc);
+    my @may_parms_loc;
+    my $parm_loc = 0;
     my $mayrest = $may;
     my $currest = $curchunk;
-    my $parm_loc = 0;
     while($mayrest =~ /$parm_re(.*)/) {
       $parm_loc++;
       my $mayp = $1;
@@ -38,33 +41,47 @@ sub find_best_def($$) {
       my $curp = $1;
       $currest = $3;
       next if $curp eq $mayp;
-      next PCHUNK if substr($mayp, 0, 1) eq "[" or substr($curp, 0, 1) eq "(";
-      $len++;
+      next PCHUNK if substr($mayp, 0, 1) eq "[" ||
+                     substr($curp, 0, 1) eq "(";
       $may_parms{substr($mayp, 1, -1)} = substr($curp, 2, -2);
+      $len++;
       push @may_parms_loc, $parm_loc;
     }
-    next if $len > $best_len;
+    next PCHUNK if $len > $best_len;
     if($len == $best_len) {
       $ambig[0] = $best if $#ambig == 0;
       push @ambig, $may;
-      for(my $i = 0; $i <= $#may_parms_loc; $i++) {
+      my $i;
+      for($i = 0; $i <= $#may_parms_loc; $i++) {
         next PCHUNK if $may_parms_loc[$i] < $best_parms_loc[$i];
         last if $may_parms_loc[$i] > $best_parms_loc[$i];
       }
+      $bad_ambig = 1 if $i == $#may_parms_loc + 1;
+      if($bad_ambig) {
+        $best = undef;
+        next PCHUNK;
+      }
     } else {
       @ambig = undef;
+      $bad_ambig = undef;
     }
     $best = $may;
-    $best_len = $len;
     %best_parms = (%may_parms);
+    $best_len = $len;
     @best_parms_loc = (@may_parms_loc);
   }
   if($#ambig > 0) {
-    print STDERR $loc . "ambiguous expansion of <<$curchunk>>:\n";
+    print STDERR $loc;
+    print STDERR "fatal: unresolvable " if $bad_ambig;
+    print STDERR "ambiguous expansion of <<$curchunk>>:\n";
     foreach my $may (@ambig) {
       print STDERR "  <<$may>>";
       print STDERR " (chosen)" if $may eq $best;
       print STDERR "\n";
+    }
+    if($bad_ambig) {
+      print "\@fatal ambiguous expansion\n";
+      exit 1;
     }
   }
   return ($best, %best_parms);
@@ -74,11 +91,11 @@ sub idx_to_loc($) {
   my $idx = $_[0];
   return "$textfile[$idx]:$textline[$idx]: ";
 }
-sub dump_def($$$%) {
-  my ($new, $prefix, $old, %parms) = @_;
+sub dump_def($$%) {
+  my ($old, $new, %parms) = @_;
   my ($ret, $subdefs);
-  my $chunk = $chunks{$old};
   $chunks{$new} = [];
+  my $chunk = $chunks{$old};
   for(my $c = 0; $c <= $#$chunk; $c += 2) {
     my $i = $$chunk[$c];
     my $last = $$chunk[$c + 1];
@@ -90,7 +107,6 @@ sub dump_def($$$%) {
         $ret .= $t;
       } else {
         if(substr($1, 0, 1) eq '@') {
-          # note: no newlines supported in parm vals due to syntax
           if($parms{$1}) {
             $ret .= "\@text $parms{$1}\n";
           } else {
@@ -103,53 +119,51 @@ sub dump_def($$$%) {
         } else {
           my $new_chunk = $1;
           my ($best, %best_parms) = find_best_def(idx_to_loc($i), $new_chunk);
-          if($best) {
-            my %new_parms = (%parms);
-            my $parms_changed;
-            foreach my $p (keys %best_parms) {
-              my $v = $best_parms{$p};
-              my $newv = '';
-              my $vrest = $v;
-              while($vrest =~ /(.*?)(?<!@)<<(@.*?(?<!@))>>(.*)/) {
-                $newv .= $1 . $parms{$2};
-                $vrest = $3;
-                # once again, can't print error because we're not notangle
-                #print STDERR "$textfile[$i]:$textline[$i]: " .
-                #             "undefined parameter <<$2>>\n" if not $parms{$2};
-              }
-              $newv .= $vrest;
-              if($newv ne $v) {
-                # since value changed, maybe best fit changed as well
-                $new_chunk =~ s/(?<!@)\[\[$v\]\]/[[$newv]]/;
-                $parms_changed = 1;
-              }
+          next if not $best;
+          my %new_parms = (%parms);
+          #my $parms_changed;
+          foreach my $p (keys %best_parms) {
+            my $v = $best_parms{$p};
+            my $newv = '';
+            my $vrest = $v;
+            while($vrest =~ /(.*?)<<(@.*?)(?<!@)>>(.*)/) {
+              $newv .= $1 . $parms{$2};
+              $vrest = $3;
+              # once again, can't print error because we're not notangle
+              #print STDERR "$textfile[$i]:$textline[$i]: " .
+              #             "undefined parameter <<$2>>\n" if not $parms{$2};
+              # instead, silently ignore/replace with blanks
             }
-            ($best, %best_parms) = find_best_def(idx_to_loc($i), $new_chunk) if $parms_changed;
-            foreach my $p (keys %best_parms) {
-              $new_parms{$p} = $best_parms{$p};
+            $newv .= $vrest;
+            if($newv ne $v) {
+              $best_parms{$p} = $newv; # not needed if find_best_def used below
+              $new_chunk =~ s/(?<!@)\[\[\Q$v\E\]\]/[[$newv]]/;
+              #$parms_changed = 1;
             }
-            # add w/ uniquifier prefix if implicit parms referenced
-            my $has_ref = has_parmref($best, \%new_parms, \%best_parms);
-            my $sub_name = $has_ref ? $prefix . $new_chunk : $new_chunk;
-            $ret .= "\@use $sub_name\n";
-            # skip if already there
-            next if $chunks{$sub_name};
-            $subdefs .= dump_def($sub_name, $sub_name, $best, %new_parms);
-          } else {
-            my $has_ref = has_parmref($best, \%parms, undef);
-            my $sub_name = $has_ref ? $prefix . $new_chunk : $new_chunk;
-            $ret .= "\@use $sub_name\n";
-            # skip if already there
-            next if $chunks{$sub_name};
-            $subdefs .= dump_def($sub_name, $prefix, $new_chunk, %parms);
           }
+          # undocumented feature: find better match if var replacements were made
+          #($best, %best_parms) = find_best_def(idx_to_loc($i), $new_chunk)
+          #   if $parms_changed;
+          # add new parms to global set of parms for recursive call
+          foreach my $p (keys %best_parms) {
+            $new_parms{$p} = $best_parms{$p};
+          }
+          # add w/ uniquifier prefix if implicit parms referenced
+          my $has_ref = has_implref($best, \%new_parms, \%best_parms);
+          my $sub_name = $has_ref ? $new . '<<>>' . $new_chunk : $new_chunk;
+          $ret .= "\@use $sub_name\n";
+          # skip if already there
+          next if $chunks{$sub_name};
+          # skip if plain reference with no parm refs
+          next if $sub_name eq $best;
+          $subdefs .= dump_def($best, $sub_name, %new_parms);
         }
       }
     }
   }
   return $ret . $subdefs;
 }
-sub has_parmref($$$) {
+sub has_implref($$$) {
   my ($chunkparts, $impl_parms, $direct_parms) = @_;
   $chunkparts = $chunks{$chunkparts};
   for(my $i = 0; $i <= $#$chunkparts; $i += 2) {
@@ -157,21 +171,21 @@ sub has_parmref($$$) {
     my $high = $$chunkparts[$i + 1];
     for(;$low <= $high; $low++) {
       if($notext[$low] =~ /^\@use (.*)$/) {
-        return 1 if $$impl_parms{$1} and (not $direct_parms or not $$direct_parms{$1});
-        foreach my $pass ($1 =~ /(?<!@)<<(.*?)>>/) {
-          return 1 if $$impl_parms{$1} and (not $direct_parms or not $$direct_parms{$1});
-        }
-        if($chunks{$1}) {
-          return 1 if has_parmref($1, $impl_parms, undef);
-        } else {
-          my ($best, %best_parms) = find_best_def(idx_to_loc($low), $1);
-          next if not $best;
-          my %new_impl = (%$impl_parms);
-          foreach my $p (keys %best_parms) {
-            $new_impl{$p} = $best_parms{$p};
+        next if $$direct_parms{$1};
+        return 1 if $$impl_parms{$1};
+        next if substr($1, 0, 1) eq '@';
+        my ($best, %best_parms) = find_best_def(idx_to_loc($low), $1);
+        next if not $best;
+        my %new_impl = (%$impl_parms);
+        foreach my $p (keys %best_parms) {
+          my $vrest = $best_parms{$p};
+          while($vrest =~ /<<(@.*?)(?<!@)>>(.*)/) {
+            return 1 if $$impl_parms{$1} && not $$direct_parms{$1};
+            $vrest = $2;
           }
-          return 1 if has_parmref($best, \%new_impl, \%best_parms);
+          $new_impl{$p} = 1;
         }
+        return 1 if has_implref($best, \%new_impl, \%best_parms);
       }
     }
   }
@@ -235,22 +249,22 @@ while(<STDIN>) {
   }
 }
 
-DUMP: for(my $i = 0; $i <= $#notext; $i++) {
+for(my $i = 0; $i <= $#notext; $i++) {
   my $u = $notext[$i];
   next if $u !~ /^\@use (.*)$/;
   my $curchunk = $1;
   next if $chunks{$curchunk};
   my ($best, %best_parms) = find_best_def(idx_to_loc($i), $curchunk);
   next unless $best;
-  foreach my $v (values %best_parms) {
-    foreach my $bad_val ($v =~ /(?<!@)(<<@.*?(?<!@)>>)/) {
-      # since we're not notangle, we have to expand every single chunk
-      # so raising an error on unknown parm is not possible
-      # for now, just go ahead and leave unexpanded
-      #print "$textfile[$i]:$textline[$i]: " .
-      #      "undefined parameter $bad_val\n";
-      last; # next DUMP;
-    }
-  }
-  print dump_def($curchunk, $curchunk . '<<>>', $best, %best_parms);
+  # since we're not notangle, we have to expand every single chunk
+  # so raising an error on unknown parm is not possible
+  # for now, just go ahead and leave unexpanded
+  #foreach my $v (values %best_parms) {
+  #  foreach my $bad_val ($v =~ /<<(@.*?)(?<!@)>>)/) {
+  #
+  #    print "$textfile[$i]:$textline[$i]: " .
+  #          "undefined parameter $bad_val\n";
+  #  }
+  #}
+  print dump_def($best, $curchunk, %best_parms);
 }

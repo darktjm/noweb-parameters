@@ -56,7 +56,7 @@ The introduction contains the syntax, repeated here:
 
     <<macro (@arg)>>=
     text <<@arg>>
-    <<other>
+    <<other>>
     @
     <<macro2 (@arg)>>=
     text2 <<@arg>>
@@ -66,9 +66,9 @@ The introduction contains the syntax, repeated here:
     <<@arg>>
     @
 
-* When expanded within macro, both @arg and other will expand to
+* When expanded within macro, both @arg and other will expand using
   macro's argument. When expanded within macro2, both @arg and other
-  will expand to macro2's argument.
+  will expand using macro2's argument.
 
 * A chunk reference consisting of the name of a chunk taking
   parameters, with all parameter references replaced by NoWeb
@@ -82,18 +82,20 @@ The introduction contains the syntax, repeated here:
 
     <<macro (@arg)>>=
     text <<@arg>>
-    <<other>
     @
     <<macro2 (@arg)>>=
     <<macro [[and <<@arg>>]]>>
     @
     <<macro3 (@arg)>>=
     <<macro4>>
-
-    <macro4>=
+    @
+    <<macro4>>=
     can reference <<@arg>> of macro3.
-
-    <<caller>>= text <<macro [[text2]]>> <<macro2 [[text3]]>> <<macro3 [[text3]]>> @
+    @
+    <<caller>>=
+    text <<macro [[text2]]>> <<macro2 [[text3]]>>
+    <<macro3 [[text4]]>>
+    @
 
   The caller chunk expands to text text text2 text text3.
 

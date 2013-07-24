@@ -1,0 +1,15 @@
+<<macro (@arg1) and (@arg2)>>=
+text <<@arg1>> blah <<@arg2>>
+@
+<<macro [[1]] and (@arg)>>=
+text blah blah <<@arg>>
+@
+<<macro (@arg) and [[2]]>>=
+text blah blah blah <<@arg>>
+@
+<<*>>=
+<<macro [[a]] and [[b]]>> -- one blah
+<<macro [[1]] and [[b]]>> -- two blahs
+<<macro [[a]] and [[2]]>> -- three blahs
+<<macro [[1]] and [[2]]>> -- three blahs and a warning
+@

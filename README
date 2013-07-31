@@ -37,7 +37,7 @@ The introduction contains the syntax, repeated here:
 
   For example:
 
-    <<macro (@arg1) with -(@arg2)- (but not (@arg3))>>=
+    <<macro (@arg1) with -(@arg2)- (but not [[(@arg3)]])>>=
     text
     @
 
@@ -120,6 +120,7 @@ The introduction contains the syntax, repeated here:
     <<macro [[1]] and [[b]]>> -- two blahs
     <<macro [[a]] and [[2]]>> -- three blahs
     <<macro [[1]] and [[2]]>> -- two blahs and a warning
+    @
 
 The filter names and usage instructions are in the final section, but
 mostly repeated here:
@@ -158,5 +159,5 @@ line.  Repeating the main input file is harmless.  For example, if
 x.nw and y.nw are normally tangled together, but weaved separately:
 
   notangle -filter ./nt-parm -R'myroot' x.nw y.nw > out
-  noweave -filter ./nw-parm-preidx y.nw -index \
-          -filter "./nw-parm-postidx y.nw" x.nw > x.tex
+  noweave -filter "./nw-parm-preidx y.nw" -index \
+          -filter ./nw-parm-postidx x.nw > x.tex

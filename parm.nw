@@ -832,7 +832,7 @@ Parameter references are simply hidden by renaming them to
 [[@nwparmuse]].
 
 As a special hack, in order to highlight parameters better, an extra
-set of square brackets is placed around them.  This repeasts some of
+set of square brackets is placed around them.  This repeats some of
 the work that [[find_best_def]] does, but that's not too terrible.
 
 <<nw-parm-preidx>>=
@@ -975,8 +975,8 @@ together, but weaved separately:
 
 \begin{verbatim}
 notangle -filter ./nt-parm -R'myroot' x.nw y.nw > out
-noweave -filter ./nw-parm-preidx y.nw -index \
-        -filter "./nw-parm-postidx y.nw" x.nw > x.tex
+noweave -filter "./nw-parm-preidx y.nw" -index \
+        -filter ./nw-parm-postidx x.nw > x.tex
 \end{verbatim}
 
 \end{document}

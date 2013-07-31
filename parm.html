@@ -842,7 +842,7 @@ Parameter references are simply hidden by renaming them to
 <code>@nwparmuse</code>.
 <p>
 As a special hack, in order to highlight parameters better, an extra
-set of square brackets is placed around them.  This repeasts some of
+set of square brackets is placed around them.  This repeats some of
 the work that <code>find_best_def</code> does, but that's not too terrible.
 <p>
 <pre><a name="NW2Ba6h0-3oiH7L-4" href="#NWD2Ba6h0-K"><dfn>&lt;nw-parm-preidx&gt;+=</dfn></a> <b>[<a href="#NWD2Ba6h0-M">&lt;-</a>D]</b>
@@ -1017,8 +1017,8 @@ harmless.  For example, if <code>x.nw</code> and <code>y.nw</code> are normally 
 <p>
 <pre>
 notangle -filter ./nt-parm -R'myroot' x.nw y.nw &gt; out
-noweave -filter ./nw-parm-preidx y.nw -index \
-        -filter &quot;./nw-parm-postidx y.nw&quot; x.nw &gt; x.tex
+noweave -filter &quot;./nw-parm-preidx y.nw&quot; -index \
+        -filter ./nw-parm-postidx x.nw &gt; x.tex
 </pre>
 
 

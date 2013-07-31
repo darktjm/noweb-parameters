@@ -113,7 +113,14 @@ text @<<macro @[[text2]]>> @<<macro2 @[[text3]]>>
 \end{verbatim}
 \end{quote}
 
-The [[caller]] chunk expands to [[text text text2 text text3]].
+The [[caller]] chunk expands to
+
+\begin{quote}
+\begin{verbatim}
+text text text2 text and text3
+can reference text4 of macro3.
+\end{verbatim}
+\end{quote}
 
 \item When more than one parameterized chunk could be used to replace
 a reference, the one with the least parameter replacements is chosen.
@@ -234,9 +241,9 @@ while(<STDIN>) {
       exit 1;
     }
     if(substr($1, 0, 1) eq '@') {
-      print STDERR "$file:$lineno: "
+      print STDERR "$file:$lineno: ";
       print STDERR "initial @ is reserved for parameter names\n";
-      print "\@nl\n\@end code\n" # prevent malformed code messages
+      print "\@nl\n\@end code\n"; # prevent malformed code messages
       print "\@fatal invalid chunk name\n";
       exit 1;
     }

@@ -123,8 +123,15 @@ text &lt;&lt;macro [[text2]]&gt;&gt; &lt;&lt;macro2 [[text3]]&gt;&gt;
 </pre>
 </blockquote>
 
-The <code>caller</code> chunk expands to <code>text text text2 text text3</code>.
+The <code>caller</code> chunk expands to
 <p>
+<blockquote>
+<pre>
+text text text2 text and text3
+can reference text4 of macro3.
+</pre>
+</blockquote>
+
 <li>When more than one parameterized chunk could be used to replace
 a reference, the one with the least parameter replacements is chosen.
 For equal numbers, the one which does not contain the earliest
@@ -244,9 +251,9 @@ while(&lt;STDIN&gt;) {
       exit 1;
     }
     if(substr($1, 0, 1) eq '@') {
-      print STDERR &quot;$file:$lineno: &quot;
+      print STDERR &quot;$file:$lineno: &quot;;
       print STDERR &quot;initial @ is reserved for parameter names\n&quot;;
-      print &quot;\@nl\n\@end code\n&quot; # prevent malformed code messages
+      print &quot;\@nl\n\@end code\n&quot;; # prevent malformed code messages
       print &quot;\@fatal invalid chunk name\n&quot;;
       exit 1;
     }

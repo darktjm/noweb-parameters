@@ -97,7 +97,9 @@ The introduction contains the syntax, repeated here:
     <<macro3 [[text4]]>>
     @
 
-  The caller chunk expands to text text text2 text text3.
+  The caller chunk expands to
+    text text text2 text and text3
+    can reference text4 of macro3.
 
 * When more than one parameterized chunk could be used to replace a
   reference, the one with the least parameter replacements is

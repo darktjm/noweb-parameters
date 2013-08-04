@@ -156,10 +156,13 @@ For example, to use:
           -filter ./nw-parm-postidx mystuff.nw > mystuff.tex
 
 If you are weaving a file that is meant to be tangled together with
-other files, those other files need to be on the nw-parm-idx command
-line.  Repeating the main input file is harmless.  For example, if
-x.nw and y.nw are normally tangled together, but weaved separately:
+other files, those other files need to be on the nw-parm-preidx
+command line.  Repeating the main input file is harmless.  For
+example, if x.nw and y.nw are normally tangled together, but weaved
+separately:
 
   notangle -filter ./nt-parm -R'myroot' x.nw y.nw > out
   noweave -filter "./nw-parm-preidx y.nw" -index \
           -filter ./nw-parm-postidx x.nw > x.tex
+  noweave -filter "./nw-parm-preidx x.nw" -index \
+          -filter ./nw-parm-postidx y.nw > y.tex

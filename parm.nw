@@ -984,6 +984,8 @@ together, but weaved separately:
 notangle -filter ./nt-parm -R'myroot' x.nw y.nw > out
 noweave -filter "./nw-parm-preidx y.nw" -index \
         -filter ./nw-parm-postidx x.nw > x.tex
+noweave -filter "./nw-parm-preidx x.nw" -index \
+        -filter ./nw-parm-postidx y.nw > y.tex
 \end{verbatim}
 
 \end{document}

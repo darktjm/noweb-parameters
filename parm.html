@@ -1020,12 +1020,14 @@ If you are weaving a file that is meant to be tangled together with
 other files, those other files need to be given on the
 <code>nw-parm-preidx</code> command line.  Repeating the main input file is
 harmless.  For example, if <code>x.nw</code> and <code>y.nw</code> are normally tangled
-<a name="NWD2Ba6h0-Q">together, but weaved separately:</a>
+together, but weaved separately:
 <p>
 <pre>
-notangle -filter ./nt-parm -R'myroot' x.nw y.nw &gt; out
+<a name="NWD2Ba6h0-Q">notangle -filter ./nt-parm -R'myroot' x.nw y.nw &gt; out</a>
 noweave -filter &quot;./nw-parm-preidx y.nw&quot; -index \
         -filter ./nw-parm-postidx x.nw &gt; x.tex
+noweave -filter &quot;./nw-parm-preidx x.nw&quot; -index \
+        -filter ./nw-parm-postidx y.nw &gt; y.tex
 </pre>
 
 

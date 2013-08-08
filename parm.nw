@@ -661,14 +661,15 @@ substitution due to an empty [[%best_parms]].
 @
 
 <<Handle dump of [[$best]]>>=
-($new_chunk, $best, %best_parms) = recheck_best(idx_to_loc($i), $new_chunk,
-                                                $best, \%best_parms, \%parms);
+($new_chunk, $best, %best_parms) =
+                recheck_best(idx_to_loc($i), $new_chunk, $best,
+		             \%best_parms, \%parms);
 # add new parms to global set of parms for recursive call
 my %new_parms = (%parms, %best_parms);
 @
 
 <<[[nt-parm]] local definitions>>=
-# substitute parameter refs in chunk name and maybe find new best match
+# substitute parm refs in chunk name and maybe find new best match
 sub recheck_best($$$$$) {
   my ($err_loc, $new_chunk, $best, $best_parms, $parms) = @_;
   my $parms_changed;
@@ -686,7 +687,7 @@ sub recheck_best($$$$$) {
     }
     $newv .= $vrest;
     if($newv ne $v) {
-      $$best_parms{$p} = $newv; # not needed if find_best_def used below
+      #$$best_parms{$p} = $newv; # reset by find_best_def below
       $new_chunk =~ s/(?<!@)\[\[\Q$v\E\]\]/[[$newv]]/;
       $parms_changed = 1;
     }
@@ -779,8 +780,9 @@ foreach my $p (keys %best_parms) {
     $vrest = $2;
   }
 }
-($orig, $best, %best_parms) = recheck_best(idx_to_loc($i), $orig, $best,
-                                           \%best_parms, $impl_parms);
+($orig, $best, %best_parms) =
+                recheck_best(idx_to_loc($i), $orig, $best,
+                             \%best_parms, $impl_parms);
 my %new_impl = (%$impl_parms, %best_parms);
 return 1 if has_implref($best, \%new_impl, \%best_parms);
 @

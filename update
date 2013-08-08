@@ -1,0 +1,7 @@
+#!/bin/sh
+for x in noroots-parm nt-parm nw-parm-{pre,post}idx; do
+  notangle -R$x parm.nw >$x
+  chmod +x $x
+done
+noweave -delay -index parm.nw >parm.tex; pdflatex parm; pdflatex parm; pdflatex parm
+noweave -delay -filter l2h -index -html parm.nw | htmltoc > parm.html

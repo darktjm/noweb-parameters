@@ -1,0 +1,13 @@
+<<macro (@arg)>>=
+1 <<@arg>>
+@
+<<macro [[x y]]>>=
+1 z
+@
+<<macro2 (@arg)>>=
+<<macro [[x <<@arg>>]]>>
+@
+<<*>>=
+<<macro2 [[x]]>> -- 1 x x
+<<macro2 [[y]]>> -- 1 z
+@

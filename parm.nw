@@ -149,6 +149,29 @@ text blah blah blah @<<@arg>>
 \end{verbatim}
 \end{quote}
 
+\item For literal text matching, all passed-on variable references are
+expanded first.
+
+For example:
+
+\begin{quote}
+\begin{verbatim}
+@<<macro (@arg)>>=
+1 @<<@arg>>
+@@
+@<<macro @[[x y]]>>=
+1 z
+@@
+@<<macro2 (@arg)>>=
+@<<macro [[x @<<@arg>>]]>>
+@@
+@<<*>>=
+@<<macro2 @[[x]]>> -- 1 x x
+@<<macro2 @[[y]]>> -- 1 z
+@@
+\end{verbatim}
+\end{quote}
+
 \end{itemize}
 
 \section{Tangling}
@@ -620,11 +643,9 @@ if(substr($1, 0, 1) eq '@') {
 Otherwise, if the chunk reference requires parameter processing, it
 needs to be handled pretty much the same as in the main loop, except
 that instead of (not) raising errors for parameter references within
-values, they must be expanded.  As a special undocumented feature, if
-a parameter expansion results in a more explicit match to a
-definition, that more explicit match could be used instead.  However,
-that complicates other things, and is really more functionality than
-necessary.
+values, they must be expanded.  If a parameter expansion results in a
+more explicit match to a definition, that more explicit match is used
+instead.
 
 Note that exact matches give ``best'' definitions as well, so this
 code will handle unparameterized calls as well, skipping the reference
@@ -640,33 +661,43 @@ substitution due to an empty [[%best_parms]].
 @
 
 <<Handle dump of [[$best]]>>=
-my %new_parms = (%parms);
-#my $parms_changed;
-foreach my $p (keys %best_parms) {
-  my $v = $best_parms{$p};
-  my $newv = '';
-  my $vrest = $v;
-  while($vrest =~ /(.*?)@<<(@.*?)(?<!@)>>(.*)/) {
-    $newv .= $1 . $parms{$2};
-    $vrest = $3;
-    # once again, can't print error because we're not notangle
-    #print STDERR "$textfile[$i]:$textline[$i]: " .
-    #             "undefined parameter @<<$2@>>\n" if not $parms{$2};
-    # instead, silently ignore/replace with blanks
-  }
-  $newv .= $vrest;
-  if($newv ne $v) {
-    $best_parms{$p} = $newv; # not needed if find_best_def used below
-    $new_chunk =~ s/(?<!@)\[\[\Q$v\E\]\]/[[$newv]]/;
-    #$parms_changed = 1;
-  }
-}
-# undocumented feature: find better match if var replacements were made
-#($best, %best_parms) = find_best_def(idx_to_loc($i), $new_chunk)
-#   if $parms_changed;
+($new_chunk, $best, %best_parms) = recheck_best(idx_to_loc($i), $new_chunk,
+                                                $best, \%best_parms, \%parms);
 # add new parms to global set of parms for recursive call
-foreach my $p (keys %best_parms) {
-  $new_parms{$p} = $best_parms{$p};
+my %new_parms = (%parms, %best_parms);
+@
+
+<<[[nt-parm]] local definitions>>=
+# substitute parameter refs in chunk name and maybe find new best match
+sub recheck_best($$$$$) {
+  my ($err_loc, $new_chunk, $best, $best_parms, $parms) = @_;
+  my $parms_changed;
+  foreach my $p (keys %$best_parms) {
+    my $v = $$best_parms{$p};
+    my $newv = '';
+    my $vrest = $v;
+    while($vrest =~ /(.*?)@<<(@.*?)(?<!@)>>(.*)/) {
+      $newv .= $1 . $$parms{$2};
+      $vrest = $3;
+      # once again, can't print error because we're not notangle
+      #print STDERR "$textfile[$i]:$textline[$i]: " .
+      #             "undefined parameter @<<$2@>>\n" if not $parms{$2};
+      # instead, silently ignore/replace with blanks
+    }
+    $newv .= $vrest;
+    if($newv ne $v) {
+      $$best_parms{$p} = $newv; # not needed if find_best_def used below
+      $new_chunk =~ s/(?<!@)\[\[\Q$v\E\]\]/[[$newv]]/;
+      $parms_changed = 1;
+    }
+  }
+  # find better match if var replacements were made
+  if($parms_changed) {
+    my %new_best_parms;
+    ($best, %new_best_parms) = find_best_def($err_loc, $new_chunk);
+    $best_parms = \%new_best_parms;
+  }
+  return ($new_chunk, $best, %$best_parms);
 }
 @
 
@@ -738,17 +769,19 @@ For full chunk references, a (possibly parameterized) match is looked
 up.  Any implicit references in parameter text must be detected as well.
 
 <<Check if [[$1]] is an implicit ref>>=
-my ($best, %best_parms) = find_best_def(idx_to_loc($low), $1);
+my $orig = $1;
+my ($best, %best_parms) = find_best_def(idx_to_loc($low), $orig);
 next if not $best;
-my %new_impl = (%$impl_parms);
 foreach my $p (keys %best_parms) {
   my $vrest = $best_parms{$p};
   while($vrest =~ /@<<(@.*?)(?<!@)>>(.*)/) {
     return 1 if $$impl_parms{$1} && not $$direct_parms{$1};
     $vrest = $2;
   }
-  $new_impl{$p} = 1;
 }
+($orig, $best, %best_parms) = recheck_best(idx_to_loc($i), $orig, $best,
+                                           \%best_parms, $impl_parms);
+my %new_impl = (%$impl_parms, %best_parms);
 return 1 if has_implref($best, \%new_impl, \%best_parms);
 @
 
@@ -831,9 +864,12 @@ For the second pass, an attempt is made to match a chunk reference
 with a definition.  If it matches, and requires parameter expansion to
 do so, its name is replaced with the parameterized definition, and its
 old name is saved using [[@nwparmcall]].  The matching method is
-copied from the tangler.  The main difference is that file and line
-information are not tracked by this filter, so the location string is
-always blank.
+copied from the tangler, with minor differences.  Line and file
+information are not tracked by this filter, so the location string is 
+always blank.  Also, since a standalone chunk does not have parameter
+values, the specialization performed after paramter expansion in chunk
+names can't be done.  Unfortunately, there is also no special link
+between a parameterized chunk and all of its potential specializations.
 
 Parameter references are simply hidden by renaming them to
 [[@nwparmuse]].
@@ -944,6 +980,73 @@ for my $u (keys %use) {
     $use{$b} = 1 if $b;
   }
 }
+@
+
+One major problem is that finding a new match after parameter
+expansion is no longer done.  The only way to check for these is to
+check each root, expanding any parameter references, and marking any
+newly used definitions.  This would need to be done in two passes:
+first to cover unparameterized roots, and then to cover any remaining
+parameterized roots.  Thus the entire code above would need to be
+rewritten.  Instead, a simple hack is performed: for any usage of a
+parameterizable chunk with a passed-on parameter, all possible
+specializations of that parameter are marked used as well.  This
+(along with the previous loop) may end up marking more than necessary,
+but it's probably good enough for a program that isn't really
+officially supported, anyway.
+
+<<noroots-parm>>=
+for my $u (keys %use) {
+  next if rindex($u, '@<<@') < 2;  # needs at least one parm ref in code
+  my $pchunks = $parmchunks{strip_chunkname $u};
+  next if not $pchunks ||
+       (scalar keys %$pchunks) == 0 ; # needs possible resolutions
+  my ($b, %bp) = find_best_def('', $u);
+  next if $b eq $u; # needs to resolve without specialization
+  # find possible parameters with parameter expansion
+  my %vars;
+  foreach my $v (keys %bp) {
+    $vars{$v} = 1 if index($bp{$v}, '@<<@') >= 0;
+  }
+  next if (scalar keys %vars) == 0;
+  # map vars to var positions
+  my @vpos;
+  my $brest = $b;
+  while($brest =~ /$parm_re(.*)/) {
+    my $bp = $1;
+    $brest = $3;
+    push @vpos, substr($bp, 0, 1) eq '(' && $vars{substr($bp, 1, -1)};
+  }
+  # for each possible resolution, allow anything at $u's var positions
+  # also, allow mapping of any parm to any code text
+  foreach my $pc (keys %$pchunks) {
+    next if $pc eq $b;
+    my $i = 0;
+    my $urest = $u;
+    my $prest = $pc;
+    my $matched = 1;
+    while($prest =~ /$parm_re(.*)/) {
+      my $bp = $1;
+      $prest = $3;
+      $urest =~ /$parm_re(.*)/;
+      my $up = $1;
+      $urest = $3;
+      if(substr($bp, 0, 1) eq '[') {
+        $matched = $vpos[$i] || $bp eq $up;
+      } else {
+        $matched = substr($up, 0, 1) eq '[' || $bp eq $up;
+      }
+      last if not $matched;
+      $i++;
+    }
+    $use{$pc} = 1 if $matched;
+  }
+}
+@
+
+Once that's been taken care of, the roots can be printed.
+
+<<noroots-parm>>=
 for my $d (keys %chunks) {
   print "@<<$d@>>\n" unless $use{$d};
 }

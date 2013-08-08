@@ -5,26 +5,10 @@ part to a filter instead of a tangling back end, and removing the
 no-newline feature.  While build.nw is licensed under the Apache
 License 2.0, this code is in the Public Domain.
 
-Unlike my other literate code on this site, this noweb file is not
-meant to be processed using build.nw.  In fact, it shares code chunk
-names with build.nw, making it impossible using the current build.nw.
-Maybe one day when I reimplement explicit import/export, this
-limitation will go away.  Until then, or until I rename those chunks
-here or there, there is no color syntax highlighting of code chunks,
-and there are many mostly blank pages and other weird gaps, and it's
-hard to tell where the boundaries are between code and documentation.
-
-All files in this project are derived from parm.nw, except for this
-README.  They are provided for convenience only; the authoritative
-source is the noweb file.
-
-The official documentation is the noweb file; weave it and display it.
-
-  noweave -delay -filter l2h -index -html parm.nw | htmltoc > parm.html
-  # view parm.html
-  noweave -delay -index parm.nw > parm.tex
-  pdflatex parm; pdflatex parm; pdflatex parm
-  # view parm.pdf
+Use a default noweb-2 installation to generate the filters and
+readable documentation using ./update.  This also weaves the official
+documentation into parm.html and parm.pdf; this README file is just a
+summary and is not authoritative.
 
 The introduction contains the syntax, repeated here:
 
@@ -124,6 +108,28 @@ The introduction contains the syntax, repeated here:
     <<macro [[1]] and [[2]]>> -- two blahs and a warning
     @
 
+* For literal text matching, all passed-on variable references are
+  expanded first.
+
+  For example:
+
+    <<macro (@arg)>>=
+    1 <<@arg>>
+    @
+    <<macro [[x y]]>>=
+    1 z
+    @
+    <<macro2 (@arg)>>=
+    <<macro [[x <<@arg>>]]>>
+    @
+    <<*>>=
+    <<macro2 [[x]]>> -- 1 x x
+    <<macro2 [[y]]>> -- 1 z
+    @
+
+
+---------------------
+
 The filter names and usage instructions are in the final section, but
 mostly repeated here:
 
@@ -166,3 +172,16 @@ separately:
           -filter ./nw-parm-postidx x.nw > x.tex
   noweave -filter "./nw-parm-preidx x.nw" -index \
           -filter ./nw-parm-postidx y.nw > y.tex
+
+---------------------
+
+Unlike my other literate code on this site, this noweb file is not
+meant to be processed using build.nw.  In fact, it shares code chunk
+names with build.nw, making it impossible using the current build.nw.
+Maybe one day when I reimplement explicit import/export, this
+limitation will go away.  Until then, or until I rename those chunks
+here or there, there is no color syntax highlighting of code chunks,
+and there are many mostly blank pages and other weird gaps in the PDF
+output, and it's hard to tell where the boundaries are between code
+and documentation (although you might be able to tweak the HTML's
+style sheet to make it look better).

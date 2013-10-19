@@ -11,7 +11,12 @@
 \date{Version 1.01\\23 July, 2013}
 \maketitle
 
-This document is placed in the public domain by its author.
+This document is placed in the public domain by its author.  This
+document contains a partial rewrite of code released separately by me,
+under the name build.nw (which may be available at
+\url{https://bitbucket.org/darktjm/literate-build}).  That document is
+licensed under the Apache License 2.0, but as the author of that code,
+I re-release the portions within this document in the Public Domain.
 
 \tableofcontents
 
@@ -869,7 +874,7 @@ old name is saved using [[@nwparmcall]].  The matching method is
 copied from the tangler, with minor differences.  Line and file
 information are not tracked by this filter, so the location string is 
 always blank.  Also, since a standalone chunk does not have parameter
-values, the specialization performed after paramter expansion in chunk
+values, the specialization performed after parameter expansion in chunk
 names can't be done.  Unfortunately, there is also no special link
 between a parameterized chunk and all of its potential specializations.
 

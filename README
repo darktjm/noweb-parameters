@@ -3,7 +3,9 @@ is a partial rewrite of the code in my build.nw
 (https://bitbucket.org/darktjm/literate-build), changing the tangle
 part to a filter instead of a tangling back end, and removing the
 no-newline feature.  While build.nw is licensed under the Apache
-License 2.0, this code is in the Public Domain.
+License 2.0, this code is in the Public Domain.  That includes the
+support scripts (tst and update), thie README, parm.nw, and the
+contents of the test directory.
 
 Use a default noweb-2 installation to generate the filters and
 readable documentation using ./update.  This also weaves the official
@@ -50,7 +52,7 @@ The introduction contains the syntax, repeated here:
     <<@arg>>
     @
 
-* When expanded within macro, both @arg and other will expand using
+  When expanded within macro, both @arg and other will expand using
   macro's argument. When expanded within macro2, both @arg and other
   will expand using macro2's argument.
 
@@ -139,12 +141,13 @@ command lines), and use as described:
 
 * nt-parm --- always use this as a filter when tangling.
 
-* nw-parm-preidx --- always use this as a filter before indexing when
-  weaving, before indexing (or implicit indexing, such as -x, -index, etc.).
+* nw-parm-preidx --- always use this as a filter when weaving, before
+  indexing (or implicit indexing, such as -x, -index, etc.).  See
+  below for command-line arguments.
 
 * nw-parm-postidx: always use this as a filter when weaving, after
   indexing (or implicit indexing).  If no indexing is done at all, use
-  both of these filters with nothing in between.
+  both nw-parm-* filters with nothing in between.
 
 * noroots-parm: use this in place of noroots.
 

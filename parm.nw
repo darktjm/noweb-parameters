@@ -41,7 +41,7 @@ I propose the following syntax changes:
 \item A chunk name used in a chunk definition line may contain
 parameter definitions in parentheses.  All parameter names begin with
 an at-sign (@).  The only characters forbidden in parameter names are
-close-parentheses and invalid NoWeb syntax.  Thus the parameter name
+close-parentheses and invalid noweb syntax.  Thus the parameter name
 is terminated by its closing parenthesis.  Parameter definition syntax
 within in-line code is ignored.
 
@@ -88,7 +88,7 @@ expand using [[macro]]'s argument.  When expanded within [[macro2]],
 both [[@arg]] and [[other]] will expand using [[macro2]]'s argument.
 
 \item A chunk reference consisting of the name of a chunk taking
-parameters, with all parameter references replaced by NoWeb in-line
+parameters, with all parameter references replaced by noweb in-line
 code segments, represents an expansion of the reference with the
 parameters taking the value of the code within the in-line code
 segments in their respective positions.  No expansion is done within
@@ -168,7 +168,7 @@ For example:
 1 z
 @@
 @<<macro2 (@arg)>>=
-@<<macro [[x @<<@arg>>]]>>
+@<<macro @[[x @<<@arg>>]]>>
 @@
 @<<*>>=
 @<<macro2 @[[x]]>> -- 1 x x
@@ -181,10 +181,10 @@ For example:
 
 \section{Tangling}
 
-Rather than create an entirely new tangler, the NoWeb pipeline is
-used.  Also, rather than modifying the NoWeb tangler, a filter is
+Rather than create an entirely new tangler, the noweb pipeline is
+used.  Also, rather than modifying the noweb tangler, a filter is
 created.  A filter is less efficient than simply replacing the
-tangler, but it is compatible with both NoWeb 2 and 3.
+tangler, but it is compatible with both noweb 2 and 3.
 
 While I would prefer to write this in C, there are valid arguments for
 writing this in perl instead%
@@ -208,7 +208,7 @@ perl should work with most installations without too much trouble.
 #!/bin/sh
 #!perl
 # GENERATED FILE:  DO NOT EDIT OR READ THIS FILE
-# Instead, read or edit the NoWeb file(s) from which this was generated.
+# Instead, read or edit the noweb file(s) from which this was generated.
 eval 'exec perl -x -f "$0" "$@"'
   if 0;
 
@@ -220,7 +220,7 @@ use strict;
 
 <<[[nt-parm]] local definitions>>
 
-<<Gather code chunks from NoWeb pipeline>>
+<<Gather code chunks from noweb pipeline>>
 
 <<Mangle and dump pipeline>>
 @
@@ -253,7 +253,7 @@ they will never be referenced and perl doesn't complain.
 my (@notext, @textfile, @textline, %chunks);
 @
 
-<<Gather code chunks from NoWeb pipeline>>=
+<<Gather code chunks from noweb pipeline>>=
 my $lineno = 1; my $file = '<stdin>';
 my ($codeline, $codefile, $curchunk);
 push @notext, '';
@@ -334,7 +334,7 @@ a chunk which exactly matches the reference.  If this is not found,
 parameterized functions are searched, with the most explicit one
 matching.  For the second step, a filter is applied to replace in-line
 code and parameter definitions with placeholders to create the key for
-a hash of stripped names ([[%parmchunks]]).  Each hash entry is an
+a hash of stripped names ([[%parmchunks]]).  Each hash entry is a
 list of definition names with the same key.  This reduces the number
 of chunk names that need to be checked every time a potential
 expansion is found.  Note that the list of names is in the form of a

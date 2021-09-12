@@ -17,7 +17,7 @@ The introduction contains the syntax, repeated here:
 * A chunk name used in a chunk definition line may contain parameter
   definitions in parentheses. All parameter names begin with an
   at-sign (@). The only characters forbidden in parameter names are
-  close-parentheses and invalid NoWeb syntax. Thus the parameter
+  close-parentheses and invalid noweb syntax. Thus the parameter
   name is terminated by its closing parenthesis. Parameter
   definition syntax within in-line code is ignored.
 
@@ -57,7 +57,7 @@ The introduction contains the syntax, repeated here:
   will expand using macro2's argument.
 
 * A chunk reference consisting of the name of a chunk taking
-  parameters, with all parameter references replaced by NoWeb
+  parameters, with all parameter references replaced by noweb
   in-line code segments, represents an expansion of the reference
   with the parameters taking the value of the code within the
   in-line code segments in their respective positions. No expansion

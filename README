@@ -153,16 +153,16 @@ command lines), and use as described:
 
 For example, to extract the programs and prepare them for use:
 
-  for x in nt-parm nw-parm-preidx nt-parm-postidx noroots-parm; do
-    notangle -R$x parm.nw >$x
-    chmod +x $x
-  done
+    for x in nt-parm nw-parm-preidx nw-parm-postidx noroots-parm; do
+      notangle -R${x}.cpp parm.nw >${x}.cpp
+      c++ -o ${x}{,.cpp}
+    done
 
 For example, to use:
 
-  notangle -filter ./nt-parm -R'myroot' mystuff.nw > out
-  noweave -filter ./nw-parm-preidx -index \
-          -filter ./nw-parm-postidx mystuff.nw > mystuff.tex
+    notangle -filter ./nt-parm -R'myroot' mystuff.nw > out
+    noweave -filter ./nw-parm-preidx -index \
+            -filter ./nw-parm-postidx mystuff.nw > mystuff.tex
 
 If you are weaving a file that is meant to be tangled together with
 other files, those other files need to be on the nw-parm-preidx
@@ -170,11 +170,11 @@ command line.  Repeating the main input file is harmless.  For
 example, if x.nw and y.nw are normally tangled together, but weaved
 separately:
 
-  notangle -filter ./nt-parm -R'myroot' x.nw y.nw > out
-  noweave -filter "./nw-parm-preidx y.nw" -index \
-          -filter ./nw-parm-postidx x.nw > x.tex
-  noweave -filter "./nw-parm-preidx x.nw" -index \
-          -filter ./nw-parm-postidx y.nw > y.tex
+    notangle -filter ./nt-parm -R'myroot' x.nw y.nw > out
+    noweave -filter "./nw-parm-preidx y.nw" -index \
+            -filter ./nw-parm-postidx x.nw > x.tex
+    noweave -filter "./nw-parm-preidx x.nw" -index \
+            -filter ./nw-parm-postidx y.nw > y.tex
 
 ---------------------
 

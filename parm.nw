@@ -186,43 +186,51 @@ used.  Also, rather than modifying the noweb tangler, a filter is
 created.  A filter is less efficient than simply replacing the
 tangler, but it is compatible with both noweb 2 and 3.
 
-While I would prefer to write this in C, there are valid arguments for
-writing this in perl instead%
-\footnote{On the other hand, C++ provides most of the needed
-functionality in the standard template library, so perhaps one day I
-will rewrite this in C++.}%
-.  If I use C, I will either have to develop some string processing
-and hash table routines, or I will have to use an existing library,
-such as GLib.  While I am not too concerned about non-POSIX systems,
-regular expression support is not necessarily present on non-POSIX
-systems, either, unless something like GLib is used.  The problem with
-GLib is that it is not as commonly available as perl, and is also not
-consistently easy to find (e.g. [[pkg-config]] is not universally
-available, and the token for [[GLib]] is inconsistent), and requires
-work to ensure that the correct versions are available.  In contrast,
-as long as I do not use any esoteric libraries or advanced features,
-perl should work with most installations without too much trouble.
+While I would prefer to write this in C, I have decided to use C++
+instead.  The main advantage is that C++ has usable variable-sized
+strings, arrays and hash tables in the standard, whereas I'd have to
+reimplement these or use something like GLib (which is not easy to
+locate on systems that don't have [[pkg-config]]).  Even C++ has
+issues with respect to whether or not the STL is usable at all, or
+what standard the installed compiler complies with.  My system is
+modern and up-to-date, but I have at least tried to make this
+compatible with C++-98 through C++-20 without errors or warnings.
 
-%\lstset{language=perl}
-<<Common Perl Prefix>>=
-#!/bin/sh
-#!perl
-# GENERATED FILE:  DO NOT EDIT OR READ THIS FILE
-# Instead, read or edit the noweb file(s) from which this was generated.
-eval 'exec perl -x -f "$0" "$@"'
-  if 0;
+%\lstset{language=C++}
+<<Common C++ Prefix>>=
+/***************************
+  GENERATED FILE:  DO NOT EDIT OR READ THIS FILE
+  Instead, read or edit the noweb file(s) from which this was generated.
+****************************/
+#include <vector>
+#include <string>
+#include <iostream>
+#include <map>
+extern "C" {
+#include <stdlib.h>
+}
+#if __cplusplus < 201100L
+#define unordered_map map
+#else
+#include <unordered_map>
+#endif
 
-use strict;
+using namespace std;
+typedef unordered_map<string, string> strmap;
 @
 
-<<nt-parm>>=
-<<Common Perl Prefix>>
+<<nt-parm.cpp>>=
+<<Common C++ Prefix>>
 
 <<[[nt-parm]] local definitions>>
 
-<<Gather code chunks from noweb pipeline>>
+int main(void)
+{
+  <<Gather code chunks from noweb pipeline>>
 
-<<Mangle and dump pipeline>>
+  <<Mangle and dump pipeline>>
+  return 0;
+}
 @
 
 Tangling a parameterized chunk is done by duplicating the chunk
@@ -234,98 +242,133 @@ in the unduplicated code do not need to be modified, since the newly
 created chunk names match their usage.  In fact, the original input
 can be safely dumped unmodified to the output.
 
-All definition text is slurped into a single array ([[@notext]]).
+All definition text is slurped into a single array ([[notext]]).
 Since we only care about chunk definition and reference lines, array
-indices are only incremented when such lines are found.  A separate
-hash ([[%chunks]]) stores, for each unique name, a list of all
-definitions' text array start and end indicies.
+indices are only incremented when such lines are found.
 
 When duplicating a definition, the original file and line location are
 needed.  When parsing a reference, the original file and line location
 may be needed for error messages.  Rather than store these in separate
-locations for each, a couple of arrays are added ([[@textfile]],
-[[@textline]]), and the file and line for any particular definition or
+locations for each, a couple of arrays are added ([[textfile]],
+[[textline]]), and the file and line for any particular definition or
 usage text array element is stored in the side arrays with the same
-index.  There is no need to assign values to unused indicies, since
-they will never be referenced and perl doesn't complain.
+index.  There is no need to assign valid values to unused indicies, since
+they will never be referenced, but C++ does insist on intializing them
+to someting (blank/0).
 
 <<[[nt-parm]] local definitions>>=
-my (@notext, @textfile, @textline, %chunks);
+vector<string> notext, textfile;
+vector<int> textline;
+@
+
+<<Common C++ Prefix>>=
+#define cmp_prefix(s) compare(0, sizeof(s) - 1, s)
+#define line_cmp_prefix_sp_or_nl(s) \
+  (line.cmp_prefix(s) || \
+   (line[sizeof(s) - 1] != ' ' && line[sizeof(s) - 1] != '\n'))
+#define ltail(s, n) s.substr(n, s.size() - (n + 1))
 @
 
 <<Gather code chunks from noweb pipeline>>=
-my $lineno = 1; my $file = '<stdin>';
-my ($codeline, $codefile, $curchunk);
-push @notext, '';
-while(<STDIN>) {
-  print $_;
-   if(/^\@begin code( |$)/) {
-    $codeline = $lineno;
-    $codefile = $file;
-    push @notext, $_;
-  } elsif(/^\@defn (.*)$/) {
-    unless($codeline) {
-      print STDERR "$file:$lineno: invalid chunk syntax\n";
-      exit 1;
+int lineno = 1;
+string file = "<stdin>";
+int codeline = 0;
+string codefile, curchunk;
+notext.push_back("");
+string line;
+while(getline(cin, line).good() || line.size()) {
+  line += '\n';
+  cout @<< line;
+
+  if(!line_cmp_prefix_sp_or_nl("@begin code")) {
+    codeline = lineno;
+    codefile = file;
+    notext.push_back(line);
+  } else if(!line.cmp_prefix("@defn ")) {
+    if(!codeline) {
+      cerr @<< file @<< ':' @<< lineno @<< ": invalid chunk syntax\n";
+      exit(1);
     }
-    if(substr($1, 0, 1) eq '@') {
-      print STDERR "$file:$lineno: ";
-      print STDERR "initial @ is reserved for parameter names\n";
-      print "\@nl\n\@end code\n"; # prevent malformed code messages
-      print "\@fatal invalid chunk name\n";
-      exit 1;
+    if(line[6] == '@') {
+      cerr @<< file @<< ':' @<< lineno @<< ": "
+              "initial @ is reserved for parameter names\n";
+      cout @<< "@nl\n@end code\n"; // prevent malformed code messages
+      cout @<< "@fatal invalid chunk name\n";
+      exit(1);
     }
-    $curchunk = $1;
-    $notext[$#notext] .= $_;
-    $textfile[$#notext] = $file;
-    $textline[$#notext] = $lineno;
-    <<Store [[$curchunk]] info>>
-    push @notext, '';
-  } elsif(/^\@end code( |$)/) {
-    unless($curchunk) {
-      print STDERR "$file:$lineno: invalid chunk syntax\n";
-      exit 1;
+    curchunk = ltail(line, 6);
+    notext.back() += line;
+    // C++ won't fill in missing elements
+    textfile.insert(textfile.end(), notext.size() - textfile.size() - 1, "");
+    textline.insert(textline.end(), notext.size() - textline.size() - 1, 0);
+    textfile.push_back(file);
+    textline.push_back(lineno);
+    <<Store [[curchunk]] info>>
+    notext.push_back("");
+  } else if(!line_cmp_prefix_sp_or_nl("@end code")) {
+    if(curchunk.empty()) {
+      cerr @<< file @<< ':' @<< lineno @<< ": invalid chunk syntax\n";
+      exit(1);
     }
-    $notext[$#notext] .= $_;
-    <<Finish off [[$curchunk]]>>
-    push @notext, '';
-    $codeline = $codefile = $curchunk = undef;
-  } elsif(/^\@use .*$/) {
-    if($curchunk) {
-      push @notext, $_;
-      $textfile[$#notext] = $file;
-      $textline[$#notext] = $lineno;
-      push @notext, '';
+    notext.back() += line;
+    <<Finish off [[curchunk]]>>
+    notext.push_back("");
+    codeline = 0;
+    codefile = curchunk = "";
+  } else if(!line.cmp_prefix("@use ")) {
+    if(!curchunk.empty()) {
+      notext.push_back(line);
+      // C++ won't fill in missing elements
+      textfile.insert(textfile.end(), notext.size() - textfile.size() - 1, "");
+      textline.insert(textline.end(), notext.size() - textline.size() - 1, 0);
+      textfile.push_back(file);
+      textline.push_back(lineno);
+      notext.push_back("");
     }
-  } elsif(/^\@fatal( |$)/) {
-    exit 1;
-  } elsif(/^\@(index |)nl( |$)/) {
-    $lineno++;
-    $notext[$#notext] .= $_ if $codeline;
-  } elsif(/^\@file (.*)$/) {
-    $file = $1;
-    $lineno = 1;
-    $notext[$#notext] .= $_ if $codeline;
-  } elsif(/^\@line (.*)$/) {
-    $lineno = $1 - 1;
-    $notext[$#notext] .= $_ if $codeline;
-  } else {
-    $notext[$#notext] .= $_ if $codeline;
-  }
+  } else if(!line_cmp_prefix_sp_or_nl("@fatal"))
+    exit(1);
+  else if(!line_cmp_prefix_sp_or_nl("@nl") ||
+          !line_cmp_prefix_sp_or_nl("@index nl")) {
+    lineno++;
+    if(codeline)
+      notext.back() += line;
+  } else if(!line.cmp_prefix("@file ")) {
+    file = ltail(line, 6);
+    lineno = 1;
+    if(codeline)
+      notext.back() += line;
+  } else if(!line.cmp_prefix("@line ")) {
+    lineno = stoi(line.substr(6)) - 1;
+    if(codeline)
+      notext.back() += line;
+  } else if(codeline)
+    notext.back() += line;
 }
 @
 
-The information stored for each chunk definition is the array index of
-the starting and ending line.  This is stored as two array entries for
-each chunk.
-
-<<Store [[$curchunk]] info>>=
-$chunks{$curchunk} = [] if not $chunks{$curchunk};
-push @{$chunks{$curchunk}}, $#notext;
+<<[[nt-parm]] local definitions>>=
+#if __cplusplus < 201100L
+int stoi(const string &s)
+{
+  return atoi(s.c_str());
+}
+#endif
 @
 
-<<Finish off [[$curchunk]]>>=
-push @{$chunks{$curchunk}}, $#notext;
+A separate map ([[chunks]]) stores, for each unique name, a list of
+all definitions' text array start and end indicies.  This is stored in
+a single vector as two consecutive entries for each chunk.
+
+<<[[nt-parm]] local definitions>>=
+unordered_map<string, vector<int> > chunks;
+@
+
+<<Store [[curchunk]] info>>=
+chunks[curchunk].push_back(notext.size() - 1);
+@
+
+<<Finish off [[curchunk]]>>=
+chunks[curchunk].push_back(notext.size() - 1);
 @
 
 Since normal code syntax is used for parameter values, special care
@@ -334,70 +377,140 @@ a chunk which exactly matches the reference.  If this is not found,
 parameterized functions are searched, with the most explicit one
 matching.  For the second step, a filter is applied to replace in-line
 code and parameter definitions with placeholders to create the key for
-a hash of stripped names ([[%parmchunks]]).  Each hash entry is a
+a map of stripped names ([parmchunks]]).  Each map value is a
 list of definition names with the same key.  This reduces the number
 of chunk names that need to be checked every time a potential
 expansion is found.  Note that the list of names is in the form of a
-hash itself; this is so duplicates can be removed without thinking;
-the actual array is obtained with the [[keys]] function.
+set; this is so duplicates can be removed without thinking.
+
+<<Common C++ Prefix>>=
+#include <set>
+#if __cplusplus < 201100L
+#define unordered_set set
+#else
+#include <unordered_set>
+#endif
+// for testing, it's better for strset to be in a predicatable order
+typedef /*unordered_*/set<string> strset;
+typedef unordered_map<string, strset> strsetmap;
+@
 
 <<[[nt-parm]] local definitions>>=
-my %parmchunks;
+strsetmap parmchunks;
 <<[[strip_chunkname]]>>
 @
 
 <<[[strip_chunkname]]>>=
-# note: $parm_re's first capture group is the parameter
-#       $parm_re's second cpature group is for recursion (ignore!)
-my $parm_re = '(\(\@[^)]*\)|(?<!@)\[\[((?:[^][]|\[(?-1)\])*)\]\])';
-sub strip_chunkname($)
+// Perl code used a recursive re for this, but C++ regex doesn't do recursion
+// extract next (@...) or [[....]] starting at after, returning start of
+// parm and position after parm and returns true if found
+// returns false if not found and updates start and after in unpredictable ways
+static bool find_parm(const string &s, int &start, int &after)
 {
-  my $n = shift;
-  $n =~ s/$parm_re/(@)/g;
-  return $n;
+  int len = s.size();
+  // perl code allowed just @ as a symbol, so I guess I'll do the same here
+  for(; len - after >= 3; after++) {
+    if(s[after] == '(' && s[after + 1] == '@') {
+      start = after;
+      for(after += 2; after < len; after++)
+        if(s[after] == ')') {
+	  ++after;
+	  return true;
+	}
+      // perl re backtracked here and continued scanning for code literals
+      // but that shouldn't really have been allowed, anyway
+      return false;
+    }
+    // No way to escape (@..), but @ escapes [[.
+    if(s[after] == '@' && s[after + 1] == '[' && s[after + 2] == '[') {
+      after += 2; // as per old code, but really should just be after++
+      continue;
+    }
+    // perl re ignored this entirely and tried again later if brackets weren't
+    // properly nested
+    // again, that shouldn't really have been allowed, anyway
+    if(s[after] == '[' && s[after + 1] == '[') {
+      start = after;
+      int nest = 0;
+      for(after += 2; len - after >= 2 &&
+                      (nest || s[after] != ']' || s[after + 1] != ']');
+		        after++) {
+        if(s[after] == '[')
+	  nest++;
+	else if(nest && s[after] == ']')
+	  nest--;
+      }
+      if(len - after < 2)
+        return false;
+      after += 2;
+      return true;
+    }
+  }
+  return false;
+}
+
+static string strip_chunkname(const string &s)
+{
+  string ret = s;
+  for(int after = 0, start; find_parm(ret, start, after); after = start + 3)
+    ret.replace(start, after - start, "(@)");
+  return ret;
 }
 @
 
-<<Store [[$curchunk]] info>>=
-my $strip = strip_chunkname $curchunk;
-$parmchunks{$strip} = {} if not $parmchunks{$strip};
-${$parmchunks{$strip}}{$curchunk} = 1;
+<<Store [[curchunk]] info>>=
+string strip = strip_chunkname(curchunk);
+parmchunks[strip].insert(curchunk);
 @
 
 Once all has been collected, the duplicated chunks can be dumped. This
 is done by iterating through the array, looking for [[@use]]es.  Any
-[[@use]] which is already present in [[%chunks]] is left alone.
+[[@use]] which is already present in [[chunks]] is left alone.
 Otherwise, if there is a match to a parameterized name (i.e. an entry
-in [[%parmchunks]] for the stripped name), the best such name is found
+in [[parmchunks]] for the stripped name), the best such name is found
 and dumped using the use-name.
 
 <<Mangle and dump pipeline>>=
-for(my $i = 0; $i <= $#notext; $i++) {
-  my $u = $notext[$i];
-  next if $u !~ /^\@use (.*)$/;
-  my $curchunk = $1;
-  next if $chunks{$curchunk};
-  my ($best, %best_parms) = find_best_def(idx_to_loc($i), $curchunk);
-  next unless $best;
-  <<Dump best definition match for [[$curchunk]]>>
+for(size_t i = 0; i < notext.size(); i++) {
+  string &u = notext[i];
+  if(u.cmp_prefix("@use "))
+    continue;
+  string curchunk = ltail(u, 5);
+  if(chunks.find(curchunk) != chunks.end())
+    continue;
+  string best;
+  strmap best_parms;
+  best = find_best_def(idx_to_loc(i), curchunk, best_parms);
+  if(best.empty())
+    continue;
+  <<Dump best definition match for [[curchunk]]>>
 }
 @
 
 <<[[nt-parm]] local definitions>>=
 <<[[find_best_def]]>>
 
-sub idx_to_loc($) {
-  my $idx = $_[0];
-  return "$textfile[$idx]:$textline[$idx]: ";
+#define idx_to_loc(idx) (textfile[idx] + ':' + to_string(textline[idx]) + ": ")
+#include <sstream>
+#if __cplusplus < 201100L
+string to_string(int i)
+{
+  stringstream ret;
+  ret << i;
+  return ret.str();
 }
+#endif
 @
 
 <<[[find_best_def]]>>=
-sub find_best_def($$) {
-  my ($loc, $curchunk) = @_;
-  my $pchunks = $parmchunks{strip_chunkname $curchunk};
-  return if not $pchunks;
-  <<Find best definition match for [[$curchunk]]>>
+static string find_best_def(const string &loc, const string &curchunk,
+			    strmap &best_parms)
+{
+  strsetmap::const_iterator pci = parmchunks.find(strip_chunkname(curchunk));
+  if(pci == parmchunks.end())
+    return "";
+  const strset &pchunks = pci->second;
+  <<Find best definition match for [[curchunk]] in [[pchunks]]>>
 }
 @
 
@@ -407,19 +520,19 @@ parsed out, a symbol table is built for the parameters.  As you may
 have noticed above, the symbol table is returned along with the
 matched chunk name.
 
-<<Find best definition match for [[$curchunk]]>>=
-my ($best, %best_parms);
+<<Find best definition match for [[curchunk]] in [[pchunks]]>>=
+string best;
 <<Prepare for finding best definition match>>
-PCHUNK: foreach my $may (keys %$pchunks) {
-  my %may_parms;
-  <<Check [[$may]] and collect parameter defs into [[%may_parms]]>>
-  <<[[next PCHUNK]] if [[$may]] is not best>>
-  $best = $may;
-  %best_parms = (%may_parms);
-  <<Save additional best info about [[$may]]>>
+for(strset::const_iterator may = pchunks.begin(); may != pchunks.end(); may++) {
+  strmap may_parms;
+  <<Check [[may]] and collect parameter defs into [[may_parms]]>>
+  <<[[continue]] if [[may]] is not best>>
+  best = *may;
+  best_parms = may_parms;
+  <<Save additional best info about [[may]]>>
 }
 <<Finish up after finding best definition match>>
-return ($best, %best_parms);
+return best;
 @
 
 Checking for a match involves simultaneously iterating over the replaced
@@ -429,49 +542,53 @@ form, although perhaps that should be an error).  If they do not
 match exactly, they still match if the definition side is in parameter
 definition form, and the usage side is in literal code text form.
 
-<<Check [[$may]] and collect parameter defs into [[%may_parms]]>>=
+<<Check [[may]] and collect parameter defs into [[may_parms]]>>=
 <<Prepare to check if definition matches>>
-my $mayrest = $may;
-my $currest = $curchunk;
-while($mayrest =~ /$parm_re(.*)/) {
+int mayrest = 0, ccrest = 0, maystart, ccstart;
+bool found;
+while((found = find_parm(*may, maystart, mayrest))) {
   <<Prepare for resolving ambiguity per match>>
-  my $mayp = $1;
-  $mayrest = $3;
-  $currest =~ /$parm_re(.*)/;
-  my $curp = $1;
-  $currest = $3;
-  next if $curp eq $mayp;
-  next PCHUNK if substr($mayp, 0, 1) eq "[" ||
-                 substr($curp, 0, 1) eq "(";
-  <<Store parameter [[$curp]] in [[$mayp]]>>
+  find_parm(curchunk, ccstart, ccrest);
+  if(!curchunk.compare(ccstart, ccrest - ccstart, *may, maystart, mayrest - maystart))
+    continue;
+  if((*may)[maystart] == '[' || curchunk[ccstart] == '(')
+    break; // continue may loop
+
+  string mayp = may->substr(maystart, mayrest - maystart);
+  string curp = curchunk.substr(ccstart, ccrest - ccstart);
+  <<Store found parameter in [[curchunk]] in [[may]]>>
 }
+if(found) // break from prev loop:  continue may loop
+  continue;
 @
 
-<<Store parameter [[$curp]] in [[$mayp]]>>=
-$may_parms{substr($mayp, 1, -1)} = substr($curp, 2, -2);
+<<Store found parameter in [[curchunk]] in [[may]]>>=
+may_parms[may->substr(maystart + 1, mayrest - maystart - 2)] =
+   curchunk.substr(ccstart + 2, ccrest - ccstart - 4);
 @
 
 To resolve ambiguity, the name with the fewest substitutions is
 retained.
 
 <<Prepare for finding best definition match>>=
-my $best_len = length $curchunk; # larger than all possible lengths
+int best_len = curchunk.size(); // larger than all possible lengths
 @
 
 <<Prepare to check if definition matches>>=
-my $len = 0;
+int len = 0;
 @
 
-<<Store parameter [[$curp]] in [[$mayp]]>>=
-$len++;
+<<Store found parameter in [[curchunk]] in [[may]]>>=
+len++;
 @
 
-<<[[next PCHUNK]] if [[$may]] is not best>>=
-next PCHUNK if $len > $best_len;
+<<[[continue]] if [[may]] is not best>>=
+if(len > best_len)
+  continue;
 @
 
-<<Save additional best info about [[$may]]>>=
-$best_len = $len;
+<<Save additional best info about [[may]]>>=
+best_len = len;
 @
 
 If two names have an equal number of substitutions, the one which has
@@ -481,60 +598,69 @@ substitutions, and all are in the same places, then there is an
 unresolvable ambiguity, leading to error exit.
 
 <<Prepare for finding best definition match>>=
-my @best_parms_loc;
-my (@ambig, $bad_ambig);
+vector<int> best_parms_loc;
+vector<string> ambig;
+bool bad_ambig = false;
 @
 
 <<Prepare to check if definition matches>>=
-my @may_parms_loc;
-my $parm_loc = 0;
+vector<int> may_parms_loc;
+int parm_loc = 0;
 @
 
 <<Prepare for resolving ambiguity per match>>=
-$parm_loc++;
+parm_loc++;
 @
 
-<<Store parameter [[$curp]] in [[$mayp]]>>=
-push @may_parms_loc, $parm_loc;
+<<Store found parameter in [[curchunk]] in [[may]]>>=
+may_parms_loc.push_back(parm_loc);
 @
 
-<<[[next PCHUNK]] if [[$may]] is not best>>=
-if($len == $best_len) {
-  $ambig[0] = $best if $#ambig == 0;
-  push @ambig, $may;
-  my $i;
-  for($i = 0; $i <= $#may_parms_loc; $i++) {
-    next PCHUNK if $may_parms_loc[$i] < $best_parms_loc[$i];
-    last if $may_parms_loc[$i] > $best_parms_loc[$i];
+<<[[continue]] if [[may]] is not best>>=
+if(len == best_len) {
+  if(!ambig.size())
+    ambig.push_back(best);
+  ambig.push_back(*may);
+  size_t i;
+  for(i = 0; i < may_parms_loc.size(); i++) {
+    if(may_parms_loc[i] < best_parms_loc[i]) {
+      i = ~0UL; // continue may loop
+      break;
+    }
+    if(may_parms_loc[i] > best_parms_loc[i])
+      break;
   }
-  $bad_ambig = 1 if $i == $#may_parms_loc + 1;
-  if($bad_ambig) {
-    $best = undef;
-    next PCHUNK;
+  if(i == ~0UL)
+    continue;
+  if((bad_ambig = i == may_parms_loc.size())) {
+    best = "";
+    continue;
   }
 } else {
-  @ambig = undef;
-  $bad_ambig = undef;
+  ambig.clear();
+  bad_ambig = false;
 }
 @
 
-<<Save additional best info about [[$may]]>>=
-@best_parms_loc = (@may_parms_loc);
+<<Save additional best info about [[may]]>>=
+best_parms_loc = may_parms_loc;
 @
 
 <<Finish up after finding best definition match>>=
-if($#ambig > 0) {
-  print STDERR $loc;
-  print STDERR "fatal: unresolvable " if $bad_ambig;
-  print STDERR "ambiguous expansion of @<<$curchunk@>>:\n";
-  foreach my $may (@ambig) {
-    print STDERR "  @<<$may@>>";
-    print STDERR " (chosen)" if $may eq $best;
-    print STDERR "\n";
+if(ambig.size()) {
+  cerr @<< loc;
+  if(bad_ambig)
+    cerr @<< "fatal: unresolvable ";
+  cerr @<< "ambiguous expansion of @<<" @<< curchunk @<< "@>>:\n";
+  for(vector<string>::const_iterator may = ambig.begin(); may != ambig.end(); may++) {
+    cerr @<< "  @<<" @<< *may @<< "@>>";
+    if(*may == best)
+      cerr @<< " (chosen)";
+    cerr @<< '\n';
   }
-  if($bad_ambig) {
-    print "\@fatal ambiguous expansion\n";
-    exit 1;
+  if(bad_ambig) {
+    cout @<< "@fatal ambiguous expansion\n";
+    exit(1);
   }
 }
 @
@@ -549,17 +675,21 @@ emit an error message, but instead, these are just left as is.  Some
 of these references are in the main text anyway, and it's too late to
 make changes to that since it's already been dumped.
 
-<<Dump best definition match for [[$curchunk]]>>=
-# since we're not notangle, we have to expand every single chunk
-# so raising an error on unknown parm is not possible
-# for now, just go ahead and leave unexpanded
-#foreach my $v (values %best_parms) {
-#  foreach my $bad_val ($v =~ /@<<(@.*?)(?<!@)>>)/) {
-#
-#    print "$textfile[$i]:$textline[$i]: " .
-#          "undefined parameter $bad_val\n";
-#  }
-#}
+<<Dump best definition match for [[curchunk]]>>=
+#if 0
+// since we're not notangle, we have to expand every single chunk
+// so raising an error on unknown parm is not possible
+// for now, just go ahead and leave unexpanded
+for(auto v = best_params.begin(); v != best_params.end(); v++)
+  for(size_t start, next = 0;
+      (start = v->second.find("@<<", next)) != string::npos; )
+    for(next = start + 2; (next = v->second.find("@>>", next)) != string::npos; )
+      if(v->second[next -1] != '@') {
+        cerr @<< textfile[i] @<< ':' @<< textline[i] @<< ": undefined parameter ";
+        cerr @<< v->second->substr(start, next + 2 - start);
+        break;
+      }
+#endif
 @
 
 While a chunk is dumped, any references within the dumped text must be
@@ -568,16 +698,17 @@ is accumulated into a string, and dumped when finished.  References'
 dumped defnitions are recursively gathered and then appended to the
 final return string.
 
-<<Dump best definition match for [[$curchunk]]>>=
-print dump_def($best, $curchunk, %best_parms);
+<<Dump best definition match for [[curchunk]]>>=
+cout @<< dump_def(best, curchunk, best_parms);
 @
 
 <<[[nt-parm]] local definitions>>=
-sub dump_def($$%) {
-  my ($old, $new, %parms) = @_;
-  my ($ret, $subdefs);
-  <<Collect [[$old]] as [[$new]] with [[%parms]] into [[$ret]]>>
-  return $ret . $subdefs;
+<<[[dump_def]] deps>>
+static string dump_def(string &oldc, string &newc, strmap &parms)
+{
+  string ret, subdefs;
+  <<Dump [[oldc]] as [[newc]] with [[parms]] into [[ret]]/[[subdefs]]>>
+  return ret + subdefs;
 }
 @
 
@@ -586,31 +717,30 @@ it should be skipped.  Above, the dumping was explicitly skipped if
 the chunk was already defined, so the same check is used within
 [[dump_def]], and those checks are enabled by defining a dummy chunk.
 
-<<Collect [[$old]] as [[$new]] with [[%parms]] into [[$ret]]>>=
-$chunks{$new} = [];
+<<Dump [[oldc]] as [[newc]] with [[parms]] into [[ret]]/[[subdefs]]>>=
+chunks[newc] = vector<int>();
 @
 
 The definition text to be dumped consists of all chunks for the
-[[$old]] definition.  Before each chunk's text emission, a [[@file]]
+[[oldc]] definition.  Before each chunk's text emission, a [[@file]]
 and [[@line]] directive is emitted, to keep [[-L]] working.  The first
-[[$notext]] entry for every chunk definition is the [[@defn]] line
+[[notext]] entry for every chunk definition is the [[@defn]] line
 itself and needs to be processed separately.  It is just dumped as is
 with the old name replaced by the new name.  Other than that, only the
 [[@use]] lines need special processing.
 
-<<Collect [[$old]] as [[$new]] with [[%parms]] into [[$ret]]>>=
-my $chunk = $chunks{$old};
-for(my $c = 0; $c <= $#$chunk; $c += 2) {
-  my $i = $$chunk[$c];
-  my $last = $$chunk[$c + 1];
-  $ret .= "\@file $textfile[$i]\n\@line " . ($textline[$i] + 1) . "\n";
-  $ret .= substr($notext[$i], 0, -(length($old) + 1)) . $new . "\n";
-  for($i++; $i <= $last; $i++) {
-    my $t = $notext[$i];
-    if($t !~ /^\@use (.*)$/) {
-      $ret .= $t;
-    } else {
-      <<Transform and add [[@use]] [[$1]] to [[$ret]]>>
+<<Dump [[oldc]] as [[newc]] with [[parms]] into [[ret]]/[[subdefs]]>>=
+vector<int> chunk = chunks[oldc];
+for(size_t c = 0; c < chunk.size(); c += 2) {
+  int i = chunk[c], last = chunk[c + 1];
+  ret += "@file " + textfile[i] + "\n@line " + to_string(textline[i] + 1) + '\n';
+  ret += notext[i].substr(0, notext[i].size() - (oldc.size() + 1)) + newc + '\n';
+  for(i++; i <= last; i++) {
+    string t = notext[i];
+    if(t.cmp_prefix("@use "))
+      ret += t;
+    else {
+      <<Transform and add [[@use]] in [[t]] to [[ret]]/[[subdefs]]>>
     }
   }
 }
@@ -632,16 +762,21 @@ references (even within parameter values) are properly expanded.
 Naturally, the top-level reference can't use a parameter reference,
 since no parameters are defined yet.
 
-<<Transform and add [[@use]] [[$1]] to [[$ret]]>>=
-if(substr($1, 0, 1) eq '@') {
-  if($parms{$1}) {
-    $ret .= "\@text $parms{$1}\n";
-  } else {
-    # again, we're not notangle, so can't raise errors here
-    #print STDERR "$textfile[$i]:$textline[$i]: " .
-    #             "undefined parameter @<<$1@>>\n" unless $parms{$1};
-    # but we can force notangle to raise an error:
-    $ret .= $t;
+<<Transform and add [[@use]] in [[t]] to [[ret]]/[[subdefs]]>>=
+if(t[5] == '@') {
+  string var = ltail(t, 5);
+  strmap::const_iterator valp = parms.find(var);
+  if(valp != parms.end())
+    ret += "@text " + valp->second + '\n';
+  else {
+#if 0
+    // again, we're not notangle, so can't raise errors here
+    cerr @<< err_loc @<<
+            "undefined parameter @<<" @<< var @<< "@>>\n";
+#else
+    // but we can force notangle to raise an error:
+    ret += t;
+#endif
   }
 @
 
@@ -654,56 +789,90 @@ instead.
 
 Note that exact matches give ``best'' definitions as well, so this
 code will handle unparameterized calls as well, skipping the reference
-substitution due to an empty [[%best_parms]].
+substitution due to an empty [[best_parms]].
 
-<<Transform and add [[@use]] [[$1]] to [[$ret]]>>=
+<<Transform and add [[@use]] in [[t]] to [[ret]]/[[subdefs]]>>=
 } else {
-  my $new_chunk = $1;
-  my ($best, %best_parms) = find_best_def(idx_to_loc($i), $new_chunk);
-  next if not $best;
-  <<Handle dump of [[$best]]>>
+  string new_chunk = ltail(t, 5);
+  strmap best_parms;
+  string best = find_best_def(idx_to_loc(i), new_chunk, best_parms);
+  if(best.empty())
+    continue;
+  <<Handle dump of [[best]]>>
 }
 @
 
-<<Handle dump of [[$best]]>>=
-($new_chunk, $best, %best_parms) =
-                recheck_best(idx_to_loc($i), $new_chunk, $best,
-		             \%best_parms, \%parms);
-# add new parms to global set of parms for recursive call
-my %new_parms = (%parms, %best_parms);
+<<Handle dump of [[best]]>>=
+recheck_best(idx_to_loc(i), new_chunk, best, best_parms, parms);
+// add new parms to global set of parms for recursive call
+strmap new_parms = merge_strmap(parms, best_parms);
 @
 
-<<[[nt-parm]] local definitions>>=
-# substitute parm refs in chunk name and maybe find new best match
-sub recheck_best($$$$$) {
-  my ($err_loc, $new_chunk, $best, $best_parms, $parms) = @_;
-  my $parms_changed;
-  foreach my $p (keys %$best_parms) {
-    my $v = $$best_parms{$p};
-    my $newv = '';
-    my $vrest = $v;
-    while($vrest =~ /(.*?)@<<(@.*?)(?<!@)>>(.*)/) {
-      $newv .= $1 . $$parms{$2};
-      $vrest = $3;
-      # once again, can't print error because we're not notangle
-      #print STDERR "$textfile[$i]:$textline[$i]: " .
-      #             "undefined parameter @<<$2@>>\n" if not $parms{$2};
-      # instead, silently ignore/replace with blanks
+<<[[dump_def]] deps>>=
+static strmap merge_strmap(const strmap &first, const strmap &second)
+{
+  strmap ret = first;
+  for(strmap::const_iterator it = second.begin(); it != second.end(); it++)
+    ret[it->first] = it->second;
+  return ret;
+}
+@
+
+<<[[dump_def]] deps>>=
+// substitute parm refs in chunk name and maybe find new best match
+static void recheck_best(const string &err_loc, string &new_chunk, string &best,
+                         strmap &best_parms, const strmap &parms)
+{
+  bool parms_changed = false;
+
+  for(strmap::const_iterator p = best_parms.begin(); p != best_parms.end(); p++) {
+    const string &v = p->second;
+    string newv = "";
+    size_t vrest = 0, start;
+    while((start = v.find("@<<@", vrest)) != string::npos) {
+      // note:  old per code did not accept @ escapes for @<<
+#if 0 // so I won't here, either
+      if(start > 0 && v[start - 1] == '@') {
+        vrest = start + 1;
+        continue;
+      }
+#endif
+      size_t end = start;
+      do {
+        end = v.find("@>>", end + 2);
+      } while(end != string::npos && v[end - 1] == '@');
+      if(end == string::npos)
+        break;
+#if 0
+      // once again, can't print error because we're not notangle
+      // instead, silently ignore/replace with blanks
+      if(parms.find(v.substr(start + 2, end - start - 2)) == parms.end())
+        cerr @<< err_loc @<<
+                 "undefined parameter " @<< v.substr(start, end + 2 - start) @<< '\n';
+#endif
+      newv += v.substr(vrest, start - vrest) +
+              parms.find(v.substr(start + 2, end - start - 2))->second;
+      vrest = end + 2;
     }
-    $newv .= $vrest;
-    if($newv ne $v) {
-      #$$best_parms{$p} = $newv; # reset by find_best_def below
-      $new_chunk =~ s/(?<!@)\[\[\Q$v\E\]\]/[[$newv]]/;
-      $parms_changed = 1;
+    newv += v.substr(vrest);
+    if(newv != v) {
+      //best_parms[p->first] = newv; // reset by find_best_def below
+      for(size_t start = 0;
+          (start = new_chunk.find("[[" + v + "]]", start)) != string::npos;
+	  start++) {
+        if(start && new_chunk[start - 1] == '@')
+	  continue;
+	new_chunk.replace(start + 2, v.size(), newv);
+	start += newv.size() + 3;
+      }
+      parms_changed = true;
     }
   }
-  # find better match if var replacements were made
-  if($parms_changed) {
-    my %new_best_parms;
-    ($best, %new_best_parms) = find_best_def($err_loc, $new_chunk);
-    $best_parms = \%new_best_parms;
+  // find better match if var replacements were made
+  if(parms_changed) {
+    best_parms.clear();
+    best = find_best_def(err_loc, new_chunk, best_parms);
   }
-  return ($new_chunk, $best, %$best_parms);
 }
 @
 
@@ -725,16 +894,18 @@ Maybe in a future revision.  Another way to shorten these names would
 be to use short random garbage as the prefix instead.   That might
 make sharing chunks harder, though.
 
-<<Handle dump of [[$best]]>>=
-# add w/ uniquifier prefix if implicit parms referenced
-my $has_ref = has_implref($best, \%new_parms, \%best_parms);
-my $sub_name = $has_ref ? $new . '@<<>>' . $new_chunk : $new_chunk;
-$ret .= "\@use $sub_name\n";
-# skip if already there
-next if $chunks{$sub_name};
-# skip if plain reference with no parm refs
-next if $sub_name eq $best;
-$subdefs .= dump_def($best, $sub_name, %new_parms);
+<<Handle dump of [[best]]>>=
+// add w/ uniquifier prefix if implicit parms referenced
+bool has_ref = has_implref(best, new_parms, best_parms);
+string sub_name = has_ref ? newc + "@<<>>" + new_chunk : new_chunk;
+ret += "@use " + sub_name + '\n';
+// skip if already there
+if(chunks.find(sub_name) != chunks.end())
+  continue;
+// skip if plain reference with no parm refs
+if(sub_name == best)
+  continue;
+subdefs += dump_def(best, sub_name, new_parms);
 @
 
 Finding references to implicitly defined parameters requires scanning
@@ -743,20 +914,20 @@ which is not in the local table.  Any non-parameter [[@use]] must also
 be scanned, recursively, assigning symbol values if that [[@use]] is a
 parameterized reference.
 
-<<[[nt-parm]] local definitions>>=
-sub has_implref($$$) {
-  my ($chunkparts, $impl_parms, $direct_parms) = @_;
-  $chunkparts = $chunks{$chunkparts};
-  for(my $i = 0; $i <= $#$chunkparts; $i += 2) {
-    my $low = $$chunkparts[$i];
-    my $high = $$chunkparts[$i + 1];
-    for(;$low <= $high; $low++) {
-      if($notext[$low] =~ /^\@use (.*)$/) {
-        <<Check if [[$1]] is an implicit ref>>
+<<[[dump_def]] deps>>=
+static bool has_implref(const string &chunk, const strmap &impl_parms,
+                        const strmap &direct_parms)
+{
+  const vector<int> &chunkparts = chunks[chunk];
+  for(size_t i = 0; i < chunkparts.size(); i += 2) {
+    int low = chunkparts[i], high = chunkparts[i + 1];
+    for(;low <= high; low++)
+      if(!notext[low].cmp_prefix("@use ")) {
+        string ref = ltail(notext[low], 5);
+        <<Check if [[ref]] is an implicit ref>>
       }
-    }
   }
-  return 0;
+  return false;
 }
 @
 
@@ -765,31 +936,44 @@ instead of checking the syntax, a lookup success is acted on
 immediately.  On the other hand, if it is a parameter reference, and
 both lookups failed, it is ignored.
 
-<<Check if [[$1]] is an implicit ref>>=
-next if $$direct_parms{$1};
-return 1 if $$impl_parms{$1};
-next if substr($1, 0, 1) eq '@';
+<<Check if [[ref]] is an implicit ref>>=
+if(direct_parms.find(ref) != direct_parms.end())
+  continue;
+if(impl_parms.find(ref) != impl_parms.end())
+  return true;
+if(ref[0] == '@')
+  continue;
 @
 
 For full chunk references, a (possibly parameterized) match is looked
 up.  Any implicit references in parameter text must be detected as well.
 
-<<Check if [[$1]] is an implicit ref>>=
-my $orig = $1;
-my ($best, %best_parms) = find_best_def(idx_to_loc($low), $orig);
-next if not $best;
-foreach my $p (keys %best_parms) {
-  my $vrest = $best_parms{$p};
-  while($vrest =~ /@<<(@.*?)(?<!@)>>(.*)/) {
-    return 1 if $$impl_parms{$1} && not $$direct_parms{$1};
-    $vrest = $2;
+<<Check if [[ref]] is an implicit ref>>=
+string orig = ref;
+strmap best_parms;
+string best = find_best_def(idx_to_loc(low), orig, best_parms);
+if(best.empty())
+  continue;
+for(strmap::const_iterator p = best_parms.begin(); p != best_parms.end(); p++) {
+  const string &v = p->second;
+  for(size_t start, vrest = 0; (start = v.find("@<<@", vrest)) != string::npos;
+      vrest += 2) {
+    vrest = start + 1;
+    do {
+      vrest = v.find("@>>", vrest + 2);
+    } while(vrest != string::npos && v[vrest - 1] == '@');
+    if(vrest == string::npos)
+      break;
+    string subv = v.substr(start + 2, vrest - (start + 2));
+    if(impl_parms.find(subv) != impl_parms.end() &&
+       direct_parms.find(subv) == direct_parms.end())
+      return true;
   }
 }
-($orig, $best, %best_parms) =
-                recheck_best(idx_to_loc($i), $orig, $best,
-                             \%best_parms, $impl_parms);
-my %new_impl = (%$impl_parms, %best_parms);
-return 1 if has_implref($best, \%new_impl, \%best_parms);
+recheck_best(idx_to_loc(i), orig, best, best_parms, impl_parms);
+strmap new_impl = merge_strmap(impl_parms, best_parms);
+if(has_implref(best, new_impl, best_parms))
+  return true;
 @
 
 \section{Weaving}
@@ -805,14 +989,13 @@ indexer, and then changed back afterwards.  These tasks can be
 accomplished by two filters:  one for before indexing, and one for
 after.
 
-%\lstset{language=perl}
-<<nw-parm-preidx>>=
-<<Common Perl Prefix>>
+<<nw-parm-preidx.cpp>>=
+<<Common C++ Prefix>>
 
 @
 
-<<nw-parm-postidx>>=
-<<Common Perl Prefix>>
+<<nw-parm-postidx.cpp>>=
+<<Common C++ Prefix>>
 
 @
 
@@ -831,24 +1014,55 @@ arrays:  one indexed by its real name, and one indexed by its name
 with all parameter definitions and references stripped out.  That way,
 finding the actual chunk to use for a macro reference is easier.
 
-<<nw-parm-preidx>>=
-<<[[strip_chunkname]]>>
+<<nw-parm-preidx.cpp>>=
+<<[[nw-parm-preidx]] locals>>
 
-my (%chunks, %parmchunks);
-
-foreach my $a (@ARGV) {
-#  open(my $fh, "markup $a|");
-  open(my $fh, "$a");
-  while(<$fh>) {
-#    next unless(m/^\@defn (.*)$/);
-    next unless(m/^@<<(.*)@>>=$/);
-    $chunks{$1} = 1;
-    my $s = strip_chunkname($1);
-    $parmchunks{$s} = {} if not $parmchunks{$s};
-    ${$parmchunks{$s}}{$1} = 1;
-  }
-  close $fh;
+int main(int argc, const char **argv)
+{
+  <<nw-parm-preidx>>
+  return 0;
 }
+@
+
+<<[[nw-parm-preidx]] locals>>=
+strsetmap parmchunks;
+@
+
+<<nw-parm-preidx>>=
+strset chunks;
+
+for(int i = 1; i < argc; i++) {
+#if 0
+  fh = popen("markup " + argv[i]);  // C++ doesn't have any such function
+#else
+  ifstream fh(argv[i]);
+#endif
+  string line;
+  while(getline(fh, line).good() || line.size()) {
+#if 0
+    if(line.cmp_prefix("@defn "))
+      continue;
+    string chunkname = line.substr(6);
+#else
+    if(line.cmp_prefix("@<<") ||
+       line.substr(line.size() - 3, 3) != "@>>=")
+      continue;
+    string chunkname = line.substr(2, line.size() - 3);
+#endif
+    chunks.insert(chunkname);
+    string s = strip_chunkname(chunkname);
+    parmchunks[s].insert(chunkname);
+  }
+  fh.close();
+}
+@
+
+<<Common C++ Prefix>>=
+#include <fstream>
+@
+
+<<[[nw-parm-preidx]] locals>>=
+<<[[strip_chunkname]]>>
 @
 
 The filter process needs to scan the file more than once.  The first
@@ -857,13 +1071,17 @@ arguments.  For convenience, the file is just read into an array of
 plain text lines for processing.
 
 <<nw-parm-preidx>>=
-my @file = <STDIN>;
-foreach my $l (@file) {
-  next unless($l =~ m/^\@defn (.*)$/);
-  $chunks{$1} = 1;
-  my $s = strip_chunkname($1);
-  $parmchunks{$s} = {} if not $parmchunks{$s};
-  ${$parmchunks{$s}}{$1} = 1;
+vector<string> file;
+string line;
+while(getline(cin, line).good() || line.size())
+  file.push_back(line);
+for(size_t i = 0; i < file.size(); i++) {
+  if(file[i].cmp_prefix("@defn "))
+    continue;
+  string chunkname = file[i].substr(6);
+  chunks.insert(chunkname);
+  string s = strip_chunkname(chunkname);
+  parmchunks[s].insert(chunkname);
 }
 @
 
@@ -886,113 +1104,200 @@ set of square brackets is placed around them.  This repeats some of
 the work that [[find_best_def]] does, but that's not too terrible.
 
 <<nw-parm-preidx>>=
-<<[[find_best_def]]>>
-
-foreach my $l (@file) {
-  if($l =~ /^\@use ([^@].*\[\[.*\]\].*)$/) {
-    my ($best,) = find_best_def('', $1);
-    if($best and $best ne $1) {
-      my $cur = '';
-      my ($b, $c) = ($best, $1);
-      while($b =~  /$parm_re(.*)/) {
-        my $bp = $1;
-        $b = $3;
-        $c =~ /^(.*?)$parm_re(.*)/;
-        my $cp = $2;
-        $c = $4;
-	$cur .= $1;
-	if($cp eq $bp) {
-	  $cur .= $cp;
-	} else {
-	  $cur .= '[[' . $cp . ']]';
-	}
+for(size_t i = 0; i < file.size(); i++) {
+  int j;
+  if(!file[i].cmp_prefix("@use ") && file[i][5] != '@' &&
+     (j = file[i].find("@[[")) && file[i].find("@]]", j + 2)) {
+    string chunkname = file[i].substr(5);
+    strmap best_parms;
+    string best = find_best_def("", chunkname, best_parms);
+    if(!best.empty() && best != chunkname) {
+      string cur = "";
+      int ca = 0, cp, ba = 0, bp;
+      while(find_parm(best, bp, ba)) {
+        int oca = ca;
+        find_parm(chunkname, cp, ca);
+	cur += chunkname.substr(oca, cp - oca);
+	if(!best.compare(bp, ba - bp, chunkname, cp, ca - cp))
+	  cur += chunkname.substr(cp, ca - cp);
+	else
+	  cur += "[[" + chunkname.substr(cp, ca - cp) + "]]";
       }
-      $cur .= $c;
-      print "\@nwparmcall $cur\n\@use $best\n";
-    } else {
-      print $l;
-    }
+      cout << "@nwparmcall " << cur << chunkname.substr(ca) << "\n"
+              "@use " << best << '\n';
+    } else
+      cout << file[i] << '\n';
   } else {
-    $l =~ s/^\@use \@/\@nwparmuse \@/;
-    print $l;
+    if(!file[i].cmp_prefix("@use @"))
+      cout << "@nwparm" << file[i].substr(1);
+    else
+      cout << file[i];
+    cout << '\n';
   }
 }
+@
+
+<<[[nw-parm-preidx]] locals>>=
+<<[[find_best_def]]>>
 @
 
 For the third pass, done after the index, the above-added tags are
 reverted.
 
-<<nw-parm-postidx>>=
-my $nwparmcall;
-
-while(<STDIN>) {
-  if(/^\@nwparmcall (.*)$/) {
-    $nwparmcall = $1;
-  } elsif(/^\@use / and $nwparmcall) {
-    print "\@use $nwparmcall\n";
-    $nwparmcall = undef;
-  } else {
-    s/^\@nwparmuse /\@use /;
-    print "$_";
+<<nw-parm-postidx.cpp>>=
+int main(void)
+{
+  string nwparmcall;
+  string line;
+  while(getline(cin, line).good() || line.size()) {
+    if(!line.cmp_prefix("@nwparmcall "))
+      nwparmcall = line.substr(12);
+    else if(!nwparmcall.empty() && !line.cmp_prefix("@use ")) {
+      cout << "@use " << nwparmcall << '\n';
+      nwparmcall = "";
+    } else if(!line.cmp_prefix("@nwparmuse "))
+      cout << '@' << line.substr(7) << '\n';
+    else
+      cout << line << '\n';
   }
 }
 @
 
 \section{Other}
 
-This is not the end of it:  [[noroots]] (noweb-2 only) needs changes
-as well.  There is no reason to retain the pipeline for this tool, so
-it could be standalone and not depend on the markup parser.  However,
+This is not the end of it: [[noroots]] (noweb-2 only) needs changes as
+well.  There is no reason to retain the pipeline for this tool, so it
+could be standalone and not depend on the markup parser.  However,
 keeping the parsing to the one official parser might be a good idea.
-The [[noroots]] script is not a simple pipeline, though:  it includes
-the entire ``backend'' in-line.  To make a replacement script, the
-library location is lifted using a trick filter in notangle.
+The [[noroots]] script is not a simple pipeline, though: it includes
+the entire ``backend'' in-line.  To make a replacement program, the
+library location is lifted using a trick filter in [[notangle]].  This
+requires runnig a pipe, which is not possible in standard C++.  As
+such, the C equivalents are used.  Also, both the syntax of the
+command and file redirection are UNIX-specific (as is the original
+noroots, to the most part).  There is no real portable way to do this.
+
+<<Common C++ Prefix>>=
+extern "C" {
+#include <stdio.h>
+#include <ctype.h>
+#include <string.h>
+}
+@
+
+<<noroots-parm.cpp>>=
+<<Common C++ Prefix>>
+
+<<[[noroots-parm]] local definitions>>
+
+int main(int argc, const char **argv)
+{
+  <<noroots-parm>>
+  return 0;
+}
+@
+
+<<[[noroots-parm]] local definitions>>=
+char iobuf[4096];
+
+static bool getline(FILE *f, string &line)
+{
+  line.clear();
+  iobuf[sizeof(iobuf) - 1] = 1;
+  while(fgets(iobuf, sizeof(iobuf), f)) {
+    if(!iobuf[0])
+      return false;
+    line += iobuf;
+    if(iobuf[sizeof(iobuf) - 1] || iobuf[sizeof(iobuf) - 2] == '\n')
+      return true;
+    iobuf[sizeof(iobuf) - 1] = 0;
+  }
+  return false;
+}
+@
+
+<<noroots-parm>>=
+FILE *p = popen("notangle -filter 'echo $LIB >&3' /dev/null 2>/dev/null 3>&1", "r");
+if(!p) {
+  perror("getting markup location");
+  exit(1);
+}
+string lib;
+getline(p, lib);
+pclose(p);
+while(lib.size() && isspace(lib[lib.size() - 1]))
+  lib.erase(lib.size() - 1);
+@
 
 The procedure is the same as standard [[noroots]], except that after
 collecting all usages, a pass is made over the usage array to add
 parameterized usages.
 
-<<noroots-parm>>=
-<<Common Perl Prefix>>
-
-my $LIB = `notangle -filter 'echo \$LIB >&3' /dev/null 2>/dev/null 3>&1`;
-chomp $LIB;
-
-my (%chunks, %parmchunks, %use);
-
-open(my $f, "-|", "$LIB/markup", @ARGV);
+<<[[noroots-parm]] local definitions>>=
+strsetmap parmchunks;
 
 <<[[strip_chunkname]]>>
-
-while(<$f>) {
-  if(/^\@quote$/) {
-    while(<$f>) {
-      last if(/\@endquote$/);
-    }
-  } elsif(/^\@defn (.*)$/) {
-    $chunks{$1} = 1;
-    my $s = strip_chunkname($1);
-    $parmchunks{$s} = {} if not $parmchunks{$s};
-    ${$parmchunks{$s}}{$1} = 1;
-  } elsif(/^\@use (.*)$/) {
-    $use{$1} = 1;
-  }
-}
-
-<<[[find_best_def]]>>
-
-for my $u (keys %use) {
-  if(substr($b, 0, 1) ne '@') {
-    my ($b,) = find_best_def('', $u);
-    $use{$b} = 1 if $b;
-  }
-}
 @
 
-One major problem is that finding a new match after parameter
-expansion is no longer done.  The only way to check for these is to
-check each root, expanding any parameter references, and marking any
-newly used definitions.  This would need to be done in two passes:
+<<noroots-parm>>=
+strset chunks, use;
+
+// fork() + exec() would be safer, but instead I'll quote the args
+string cmd = lib + "/markup";
+for(int i = 1; i < argc; i++) {
+  cmd += " '";
+  const char *s = argv[i];
+  for(const char *start = s; (start = strchr(start, '\'')); start++) {
+    cmd.append(s, start + 1 - s);
+    s = start + 1;
+    cmd += "\\''";
+  }
+  cmd += s;
+  cmd += '\'';
+}
+p = popen(cmd.c_str(), "r");
+string line;
+while(getline(p, line) || line.size()) {
+  if(line == "@quote\n") {
+    while(getline(p, line) || line.size())
+      if(line == "@endquote\n")
+        break;
+  } else if(!line.cmp_prefix("@defn ")) {
+    string chunkname = ltail(line, 6);
+    chunks.insert(chunkname);
+    parmchunks[strip_chunkname(chunkname)].insert(chunkname);
+  } else if(!line.cmp_prefix("@use "))
+    use.insert(ltail(line, 5));
+}
+<<Add [[use]] entries for parameterized references>>
+for(strset::const_iterator d = chunks.begin(); d != chunks.end(); d++)
+  if(use.find(*d) == use.end())
+    cout @<< "@<<" @<< *d @<< "@>>\n";
+@
+
+Direct, fully specified macro calls are easy:  just find the best
+match and mark it.
+
+<<[[noroots-parm]] local definitions>>=
+<<[[find_best_def]]>>
+@
+
+<<Add [[use]] entries for parameterized references>>=
+strset ou = use;  // unsafe to insert into unordered_set while iterating
+for(strset::const_iterator u = ou.begin(); u != ou.end(); u++)
+  if((*u)[0] != '@') {
+    strmap best_parms;
+    string best = find_best_def("", *u, best_parms);
+    if(!best.empty())
+      use.insert(best);
+  }
+@
+
+However, this does not work when passing parameters down.  The
+tangling filter also repeatedly resolves variable references as needed
+for the best specialization choice.  The only way to check for these
+is to check each root, expanding any parameter references, and marking
+any newly used definitions.  This would need to be done in two passes:
 first to cover unparameterized roots, and then to cover any remaining
 parameterized roots.  Thus the entire code above would need to be
 rewritten.  Instead, a simple hack is performed: for any usage of a
@@ -1000,84 +1305,85 @@ parameterizable chunk with a passed-on parameter, all possible
 specializations of that parameter are marked used as well.  This
 (along with the previous loop) may end up marking more than necessary,
 but it's probably good enough for a program that isn't really
-officially supported, anyway.
+officially supported, anyway.  One of these days, maybe I'll modify
+[[nt-parm]] to perform this function more accurately.
 
 <<noroots-parm>>=
-for my $u (keys %use) {
-  next if rindex($u, '@<<@') < 2;  # needs at least one parm ref in code
-  my $pchunks = $parmchunks{strip_chunkname $u};
-  next if not $pchunks ||
-       (scalar keys %$pchunks) == 0 ; # needs possible resolutions
-  my ($b, %bp) = find_best_def('', $u);
-  next if $b eq $u; # needs to resolve without specialization
-  # find possible parameters with parameter expansion
-  my %vars;
-  foreach my $v (keys %bp) {
-    $vars{$v} = 1 if index($bp{$v}, '@<<@') >= 0;
-  }
-  next if (scalar keys %vars) == 0;
-  # map vars to var positions
-  my @vpos;
-  my $brest = $b;
-  while($brest =~ /$parm_re(.*)/) {
-    my $bp = $1;
-    $brest = $3;
-    push @vpos, substr($bp, 0, 1) eq '(' && $vars{substr($bp, 1, -1)};
-  }
-  # for each possible resolution, allow anything at $u's var positions
-  # also, allow mapping of any parm to any code text
-  foreach my $pc (keys %$pchunks) {
-    next if $pc eq $b;
-    my $i = 0;
-    my $urest = $u;
-    my $prest = $pc;
-    my $matched = 1;
-    while($prest =~ /$parm_re(.*)/) {
-      my $bp = $1;
-      $prest = $3;
-      $urest =~ /$parm_re(.*)/;
-      my $up = $1;
-      $urest = $3;
-      if(substr($bp, 0, 1) eq '[') {
-        $matched = $vpos[$i] || $bp eq $up;
-      } else {
-        $matched = substr($up, 0, 1) eq '[' || $bp eq $up;
-      }
-      last if not $matched;
-      $i++;
+ou = use;
+for(strset::const_iterator u = ou.begin(); u != ou.end(); u++) {
+  if(u->rfind("@<<@") < 2)  // needs at least one parm ref in code
+    continue;
+  strsetmap::const_iterator pchunks = parmchunks.find(strip_chunkname(*u));
+  if(pchunks == parmchunks.end() ||
+     !pchunks->second.size()) // needs possible resolutions
+    continue;
+  strmap bparms;
+  string b = find_best_def("", *u, bparms);
+  if(b == *u) // needs to resolve without specialization
+    continue;
+  // find possible parameters with parameter expansion
+  strset vars;
+  for(strmap::const_iterator v = bparms.begin(); v != bparms.end(); v++)
+    if(v->second.find("@<<@") != string::npos)
+      vars.insert(v->second);
+  if(!vars.size())
+    continue;
+  // map vars to var positions
+  vector<bool> vpos;
+  int brest = 0, bp;
+  while(find_parm(b, bp, brest))
+    vpos.push_back(b[bp] == '(' &&
+                   vars.find(b.substr(bp + 1, brest - bp - 2)) != vars.end());
+  // for each possible resolution, allow anything at u's var positions
+  // also, allow mapping of any parm to any code text
+  for(strset::const_iterator pc = pchunks->second.begin();
+      pc != pchunks->second.end(); pc++) {
+    if(*pc == b)
+      continue;
+    bool matched = true;
+    int prest = 0, pp, urest = 0, up;
+    for(int i = 0; matched && find_parm(*pc, pp, prest); i++) {
+      find_parm(*u, up, urest);
+      if((*pc)[pp] == '[')
+        matched = vpos[i];
+      else
+        matched = (*u)[up] == '[';
+      if(!matched)
+        matched = !pc->compare(pp, prest - pp, *u, up, urest - up);
     }
-    $use{$pc} = 1 if $matched;
+    if(matched)
+      use.insert(*pc);
   }
-}
-@
-
-Once that's been taken care of, the roots can be printed.
-
-<<noroots-parm>>=
-for my $d (keys %chunks) {
-  print "@<<$d@>>\n" unless $use{$d};
 }
 @
 
 \section{Usage}
 
 In summary, to use this, see the introduction for syntax.  Extract the
-following four chunks from this document, make them executable (or
-always prefix them with the path to perl in filter command lines), and
-use as described:
+following four chunks from this document, compile them with your C++
+compiler into an executable, and use as described:
 
 \begin{itemize}
-\item [[nt-parm]] --- always use this as a filter when tangling.
-\item [[nw-parm-preidx]] --- always use this as a filter when weaving,
+\item [[nt-parm.cpp]] --- always use this as a filter when tangling.
+\item [[nw-parm-preidx.cpp]] --- always use this as a filter when weaving,
 before indexing (or implicit indexing, such [[-x]], [[-index]], etc.).
-\item [[nw-parm-postidx]] --- always use this as a filter when
+\item [[nw-parm-postidx.cpp]] --- always use this as a filter when
 weaving, after indexing (or implicit indexing).  If no indexing is
 done at all, use both of these filters with nothing in between.
-\item [[noroots-parm]] --- use this in place of [[noroots]].
+\item [[noroots-parm.cpp]] --- use this in place of [[noroots]].
 \end{itemize}
 
 For example:
 
+To compile on UNIX:
+\begin{verbatim}
+for x in nt-prm nw-parm-{pre,post}idx noroots-parm; do
+  notangle -L -R${x}.cpp parm.nw > ${x}.cpp
+  c++ -O -o ${x} ${x.cpp}
+done
+\end{verbatim}
+
+To use on UNIX, if the executables are in the current directory:
 \begin{verbatim}
 notangle -filter ./nt-parm -R'myroot' mystuff.nw > out
 noweave -filter ./nw-parm-preidx -index \
@@ -1088,7 +1394,8 @@ If you are weaving a file that is meant to be tangled together with
 other files, those other files need to be given on the
 [[nw-parm-preidx]] command line.  Repeating the main input file is
 harmless.  For example, if [[x.nw]] and [[y.nw]] are normally tangled
-together, but weaved separately:
+together, but weaved separately (again, on UNIX, if the executables
+are in the current directory):
 
 \begin{verbatim}
 notangle -filter ./nt-parm -R'myroot' x.nw y.nw > out
@@ -1097,5 +1404,13 @@ noweave -filter "./nw-parm-preidx y.nw" -index \
 noweave -filter "./nw-parm-preidx x.nw" -index \
         -filter ./nw-parm-postidx y.nw > y.tex
 \end{verbatim}
+
+\section{Index}
+
+\nowebchunks
+
+% note: no identifier indexing is done right now
+
+%\nowebindex
 
 \end{document}

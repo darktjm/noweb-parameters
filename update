@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
-for x in noroots-parmnt-parm nw-parm-{pre,post}idx; do
+for x in noroots-parm nt-parm nw-parm-{pre,post}idx; do
   notangle -L -R${x}.cpp parm.nw >${x}.cpp
   g++ --std=c++98 -O2 -Wall -Wextra -o $x{,.cpp}
   g++ -O2 -Wall -Wextra -o $x{,.cpp}

@@ -1,3 +1,0 @@
-ambig_err.nw:16: fatal: unresolvable ambiguous expansion of <<macro [[a]] and [[2]]>>:
-  <<macro (@arg) and [[2]]>>
-  <<macro (@arg1) and [[2]]>>

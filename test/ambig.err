@@ -1,3 +1,0 @@
-ambig.nw:14: ambiguous expansion of <<macro [[1]] and [[2]]>>:
-  <<macro (@arg) and [[2]]>>
-  <<macro [[1]] and (@arg)>> (chosen)

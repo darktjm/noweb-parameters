@@ -1,155 +1,52 @@
-This provides filters to extend noweb with parameterized chunks.  It
-is a partial rewrite of the code in my build.nw
-(https://bitbucket.org/darktjm/literate-build), changing the tangle
-part to a filter instead of a tangling back end, and removing the
-no-newline feature.  While build.nw is licensed under the Apache
-License 2.0, this code is in the Public Domain.  That includes the
-support scripts (tst and update), thie README, parm.nw, and the
-contents of the test directory.
+This project used to contain parm.nw, a set of filters to provide
+parameterized chunks for noweb.  It was extracted from build.nw, which
+I wrote and use for general literal programming support, and changed
+to a filter rather than a notangle replacement (as well as removing
+another feature, newline suppression).  I no longer wish to maintain
+two separate versions, though, so I have changed build.nw to use
+parm.nw for its parameterized chunk support, and moved parm.nw back
+into my literate build project:
 
-Use a default noweb-2 installation to generate the filters and
-readable documentation using ./update.  This also weaves the official
-documentation into parm.html and parm.pdf; this README file is just a
-summary and is not authoritative.
+   https://bitbucket.org/darktjm/literate-build
 
-The introduction contains the syntax, repeated here:
+parm.nw is still independent enough from build.nw that you can tangle
+and weave it separately (although I recommend weaving as part of the
+literate-build project, as it will be colorized and more compact). 
+However, I will no longer duplicate the code here, or the bulk of its
+documentation.  In brief, this allows you to create chunks like:
 
-* A chunk name used in a chunk definition line may contain parameter
-  definitions in parentheses. All parameter names begin with an
-  at-sign (@). The only characters forbidden in parameter names are
-  close-parentheses and invalid noweb syntax. Thus the parameter
-  name is terminated by its closing parenthesis. Parameter
-  definition syntax within in-line code is ignored.
+<<macro (@arg1) (@arg2)>>=
+...
+... blah<<@arg1>>
+... blah<<@arg2>>
+@
 
-  For example:
+and use them like:
 
-    <<macro (@arg1) with -(@arg2)- (but not [[(@arg3)]])>>=
-    text
-    @
+<<macro [[val1]] [[val2]]>>
 
-  The parameters are @arg1 and @arg2.
-
-* No chunk name may begin with an at-sign (@). That is, the names
-  starting with an at-sign are reserved for parameter names.
-
-* Chunk references beginning with an at-sign (@) expand to the
-  parameter with that name, as defined by the closest parent taking
-  a parameter of that name. When weaved, such references are not
-  linked anywhere, and they are not added to the index. When
-  tangled, the -L option is ignored.
-
-  For example:
-
-    <<macro (@arg)>>=
-    text <<@arg>>
-    <<other>>
-    @
-    <<macro2 (@arg)>>=
-    text2 <<@arg>>
-    <<other>>
-    @
-    <<other>>=
-    <<@arg>>
-    @
-
-  When expanded within macro, both @arg and other will expand using
-  macro's argument. When expanded within macro2, both @arg and other
-  will expand using macro2's argument.
-
-* A chunk reference consisting of the name of a chunk taking
-  parameters, with all parameter references replaced by noweb
-  in-line code segments, represents an expansion of the reference
-  with the parameters taking the value of the code within the
-  in-line code segments in their respective positions. No expansion
-  is done within the code segments except for parameter references;
-  these may be used to pass parameters on to another macro.
-
-  For example:
-
-    <<macro (@arg)>>=
-    text <<@arg>>
-    @
-    <<macro2 (@arg)>>=
-    <<macro [[and <<@arg>>]]>>
-    @
-    <<macro3 (@arg)>>=
-    <<macro4>>
-    @
-    <<macro4>>=
-    can reference <<@arg>> of macro3.
-    @
-    <<caller>>=
-    text <<macro [[text2]]>> <<macro2 [[text3]]>>
-    <<macro3 [[text4]]>>
-    @
-
-  The caller chunk expands to
-    text text text2 text and text3
-    can reference text4 of macro3.
-
-* When more than one parameterized chunk could be used to replace a
-  reference, the one with the least parameter replacements is
-  chosen. For equal numbers, the one which does not contain the
-  earliest parameter replacement is chosen.
-
-  For example:
-
-    <<macro (@arg1) and (@arg2)>>=
-    text <<@arg1>> blah <<@arg2>>
-    @
-    <<macro [[1]] and (@arg)>>=
-    text blah blah <<@arg>>
-    @
-    <<macro (@arg) and [[2]]>>=
-    text blah blah blah <<@arg>>
-    @
-    <<*>>=
-    <<macro [[a]] and [[b]]>> -- one blah
-    <<macro [[1]] and [[b]]>> -- two blahs
-    <<macro [[a]] and [[2]]>> -- three blahs
-    <<macro [[1]] and [[2]]>> -- two blahs and a warning
-    @
-
-* For literal text matching, all passed-on variable references are
-  expanded first.
-
-  For example:
-
-    <<macro (@arg)>>=
-    1 <<@arg>>
-    @
-    <<macro [[x y]]>>=
-    1 z
-    @
-    <<macro2 (@arg)>>=
-    <<macro [[x <<@arg>>]]>>
-    @
-    <<*>>=
-    <<macro2 [[x]]>> -- 1 x x
-    <<macro2 [[y]]>> -- 1 z
-    @
-
-
----------------------
+and have <<@arg1>> expand to val1 and <<@arg2>> expand to val2.
+Specializations are also supported, as well as passing arguments down
+to chunks referenced by the macro.
 
 The filter names and usage instructions are in the final section, but
 mostly repeated here:
 
-Extract the following four chunks from the noweb file, make them
-executable (or always prefix them with the path to perl in filter
-command lines), and use as described:
+Extract the following four chunks from the noweb file, and compile
+them with your C++ compiler (it should work with C++-98 through C++-20
+without issues):
 
-* nt-parm --- always use this as a filter when tangling.
+* nt-parm.cpp: always use this as a filter when tangling.
 
-* nw-parm-preidx --- always use this as a filter when weaving, before
+* nw-parm-preidx.cpp: always use this as a filter when weaving, before
   indexing (or implicit indexing, such as -x, -index, etc.).  See
   below for command-line arguments.
 
-* nw-parm-postidx: always use this as a filter when weaving, after
+* nw-parm-postidx.cpp: always use this as a filter when weaving, after
   indexing (or implicit indexing).  If no indexing is done at all, use
   both nw-parm-* filters with nothing in between.
 
-* noroots-parm: use this in place of noroots.
+* noroots-parm.cpp: use this in place of noroots.
 
 For example, to extract the programs and prepare them for use:
 
@@ -175,16 +72,3 @@ separately:
             -filter ./nw-parm-postidx x.nw > x.tex
     noweave -filter "./nw-parm-preidx x.nw" -index \
             -filter ./nw-parm-postidx y.nw > y.tex
-
----------------------
-
-Unlike my other literate code on this site, this noweb file is not
-meant to be processed using build.nw.  In fact, it shares code chunk
-names with build.nw, making it impossible using the current build.nw.
-Maybe one day when I reimplement explicit import/export, this
-limitation will go away.  Until then, or until I rename those chunks
-here or there, there is no color syntax highlighting of code chunks,
-and there are many mostly blank pages and other weird gaps in the PDF
-output, and it's hard to tell where the boundaries are between code
-and documentation (although you might be able to tweak the HTML's
-style sheet to make it look better).

@@ -15,15 +15,15 @@ literate-build project, as it will be colorized and more compact).
 However, I will no longer duplicate the code here, or the bulk of its
 documentation.  In brief, this allows you to create chunks like:
 
-<<macro (@arg1) (@arg2)>>=
-...
-... blah<<@arg1>>
-... blah<<@arg2>>
-@
+    <<macro (@arg1) (@arg2)>>=
+    ...
+    ... blah<<@arg1>>
+    ... blah<<@arg2>>
+    @
 
 and use them like:
 
-<<macro [[val1]] [[val2]]>>
+    <<macro [[val1]] [[val2]]>>
 
 and have <<@arg1>> expand to val1 and <<@arg2>> expand to val2.
 Specializations are also supported, as well as passing arguments down
